@@ -1,0 +1,1352 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="İlk Buluşma">
+<meta name="description" content="Beni ne kadar tanıyorsun? 12 soruluk animasyonlu ilk buluşma oyunu.">
+<meta property="og:title" content="İlk Buluşma Simülatörü">
+<meta property="og:description" content="Kahve soğumadan beni ne kadar iyi tanıyabilirsin? ☕">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314161d'/%3E%3Cpath d='M32 50 L13 31 A10 10 0 0 1 32 17 A10 10 0 0 1 51 31Z' fill='%23ff5c7a'/%3E%3C/svg%3E">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>İlk Buluşma Simülatörü</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: full-bleed animated POV scene (SVG) with letterbox bars; one white bubble card docks at the bottom and the camera lifts the scene above it. Single cinematic look. */
+:root{
+  color-scheme: dark;
+  --scene:#14161d; --scene-text:#eef0f6; --scene-dim:#a3a9bb;
+  --ink:#1b1d26; --ink-soft:#5d6273; --paper:#ffffff; --line:#e7e8ee;
+  --accent:#2f6df6; --good:#1e9e63; --bad:#d64545; --warm:#f2a65a;
+  --skin:#f6d3b8; --skin-sh:#e2b08e; --hair:#f2cf6b; --hair-hi:#fbe39b; --hair-sh:#d4a43f; --hair-wet:#bf9a45;
+  --iris:#3d8bfd; --iris-dk:#1f5fd1; --sweater:#34466e; --sweater-dk:#26355a; --tee:#f2f2ef;
+  --display:"Young Serif",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --bar:clamp(24px,5vh,52px);
+}
+html,body{height:100%;overscroll-behavior:none}
+body{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;touch-action:manipulation;-webkit-text-size-adjust:100%}
+body{background:var(--scene);color:var(--scene-text);font-family:var(--body);overflow:hidden}
+
+/* ---------- Animation screen ---------- */
+.screen{position:fixed;inset:0;overflow:hidden;background:var(--scene)}
+#stage{position:absolute;inset:0;width:100%;height:100%;transition:transform .7s cubic-bezier(.3,.7,.2,1)}
+.grain{position:absolute;inset:0;opacity:.07;pointer-events:none;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 40%,transparent 55%,rgba(0,0,0,.55))}
+.bar{position:absolute;left:0;right:0;height:var(--bar);background:#000;z-index:2}
+.bar.top{top:0}.bar.bottom{bottom:0}
+.hud-top{position:absolute;z-index:3;top:calc(var(--bar) + 10px + env(safe-area-inset-top,0px));
+  left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:8px;pointer-events:none}
+.hud-row{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--scene-dim)}
+.rec{display:flex;align-items:center;gap:8px}
+.rec i{width:8px;height:8px;border-radius:50%;background:var(--bad);animation:blink-dot 1.2s steps(2) infinite}
+@keyframes blink-dot{50%{opacity:.2}}
+.caption{justify-self:center;max-width:36rem;text-align:center;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--scene-text);
+  background:rgba(10,12,18,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:6px 12px;border-radius:10px;text-wrap:balance}
+.caption.swap{animation:fadeup .5s ease}
+@keyframes fadeup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.reaction-bar{justify-self:center;width:min(180px,50vw);height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;visibility:hidden}
+.reaction-bar.on{visibility:visible}
+.reaction-bar span{display:block;height:100%;background:var(--scene-text);transform-origin:left}
+
+/* ---------- SVG character & props ---------- */
+#stage *{transform-box:fill-box}
+.skin{fill:var(--skin)} .skin-sh{fill:var(--skin-sh)}
+.hair{fill:var(--hair);transition:fill .8s} .hair-hi{fill:var(--hair-hi);transition:fill .8s} .hair-sh{fill:var(--hair-sh)}
+.sweater{fill:var(--sweater)} .sweater-dk{fill:var(--sweater-dk)}
+.sleeve{stroke:var(--sweater);stroke-linecap:round;fill:none}
+.wet .hair{fill:var(--hair-wet)} .wet .hair-hi{fill:var(--hair)}
+.scene-layer{transition:opacity .7s}
+#stage[data-scene="cafe"] .street-only{opacity:0}
+#stage[data-scene="street"] .cafe-only{opacity:0}
+
+#guy{transform-box:view-box;transform-origin:400px 860px;transition:transform .9s cubic-bezier(.3,.7,.2,1)}
+#guyAnim{transform-box:view-box;transform-origin:400px 620px;animation:breathe 4s ease-in-out infinite}
+#head{transition:transform .7s cubic-bezier(.3,.7,.2,1);transform-origin:50% 90%}
+.kneel #guy{transform:translateY(150px)}
+.runaway #guy{animation:flee 4.2s cubic-bezier(.5,0,.8,.6) forwards}
+.close #guy{transform:translateY(70px) scale(1.12)}
+.stepaside #guy{transform:translate(120px,-40px) scale(.9);transition-duration:1.6s}
+.turnaway #head{transform:translateX(-14px) rotate(-9deg)}
+.lookdown #head{transform:translateY(10px) rotate(7deg)}
+.bob #guyAnim{animation:bob .45s ease-in-out 3}
+.runaway #guyAnim{transform-origin:400px 860px;animation:fright .5s ease-out,runbob .24s ease-in-out .9s infinite}
+.stumble #guyAnim{animation:stumble 1.1s ease-out}
+.laughing #guyAnim{animation:laugh .2s ease-in-out infinite}
+.walk #guyAnim{animation:walk .7s ease-in-out infinite}
+.nod #guyAnim{animation:nod .7s ease-in-out 1.2s 2}
+@keyframes flee{
+  0%{transform:translate(0,-300px) scale(.4)}
+  18%{transform:translate(0,-300px) scale(.4)}
+  100%{transform:translate(720px,-300px) scale(.4)}}
+@keyframes fright{0%{transform:none}40%{transform:translateY(-120px) scale(.95,1.08)}75%{transform:translateY(0) scale(1.08,.92)}100%{transform:none}}
+@keyframes runbob{0%,100%{transform:rotate(9deg) translateY(0)}50%{transform:rotate(9deg) translateY(-50px)}}
+.leg,.sarm{transform-origin:50% 0}
+.runaway .legL,.walk .legL{animation:legswing .24s ease-in-out .9s infinite alternate}
+.runaway .legR,.walk .legR{animation:legswing .24s ease-in-out .9s infinite alternate-reverse}
+.runaway .armL{animation:armswing .24s ease-in-out .9s infinite alternate-reverse}
+.runaway .armR{animation:armswing .24s ease-in-out .9s infinite alternate}
+.walk .legL,.walk .legR{animation-duration:.35s;animation-delay:0s}
+@keyframes legswing{from{transform:rotate(-30deg)}to{transform:rotate(30deg)}}
+@keyframes armswing{from{transform:rotate(-40deg)}to{transform:rotate(40deg)}}
+.handhead .armR,.wave .armR,.lighter .armR,.offer .armR,.reach .armR,.point .armL,.jacket .sidearms{opacity:0}
+#alarm{opacity:0;transform:scale(.3);transform-origin:50% 100%}
+.runaway #alarm{animation:alarm 1.2s ease-out forwards}
+@keyframes alarm{0%{opacity:0;transform:scale(.3)}15%{opacity:1;transform:scale(1.2)}30%{transform:scale(1)}80%{opacity:1}100%{opacity:0}}
+#zoom{transform-box:view-box;transform-origin:400px 300px;will-change:transform}
+#hand{transform-box:view-box;transform-origin:400px 300px}
+.runaway #zoom{animation:pullback 4.2s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes pullback{0%{transform:scale(1.18);opacity:.2}8%{opacity:1}100%{transform:scale(.94)}}
+.chase #dog{animation:chase 4.2s cubic-bezier(.55,0,.75,.8) forwards}
+@keyframes chase{
+  0%{transform:translate(262px,548px) scale(.42)}
+  22%{transform:translate(262px,548px) scale(.42)}
+  30%{transform:translate(280px,536px) scale(.42)}
+  100%{transform:translate(960px,548px) scale(.42)}}
+.chase #dog > g{animation:dogbob .2s ease-in-out .9s infinite alternate}
+@keyframes dogbob{to{transform:translateY(-14px) rotate(-4deg)}}
+.dleg{transform-origin:50% 0}
+.chase .dleg{animation:dstride .1s linear .9s infinite alternate}
+.dleg:nth-of-type(2n){animation-direction:alternate-reverse!important}
+.dog-side .dleg,.dog-near .dleg,.dog-close .dleg{animation:dstride .14s linear 8 alternate}
+@keyframes dstride{from{transform:rotate(-28deg)}to{transform:rotate(28deg)}}
+.chase #bark{opacity:1}
+#dust circle{opacity:0}
+.runaway #dust circle{animation:dust .6s ease-out 1s infinite}
+#dust circle:nth-child(2){animation-delay:1.2s!important}#dust circle:nth-child(3){animation-delay:1.4s!important}
+@keyframes dust{0%{opacity:.6;transform:scale(.4)}100%{opacity:0;transform:scale(1.6) translateX(-40px)}}
+#stage[data-e="open"] .pupil{animation:look 7s ease-in-out infinite}
+@keyframes look{0%,40%,100%{transform:none}45%,58%{transform:translateX(4px)}63%,75%{transform:translate(-3px,1px)}}
+@keyframes breathe{50%{transform:translateY(2px) scaleY(.995)}}
+@keyframes bob{50%{transform:translateY(-10px)}}
+@keyframes hop{50%{transform:translateY(-16px) rotate(-3deg)}}
+@keyframes stumble{0%{transform:none}25%{transform:rotate(-8deg) translate(-20px,24px)}45%{transform:rotate(5deg) translate(8px,8px)}70%{transform:rotate(-2deg)}100%{transform:none}}
+@keyframes laugh{50%{transform:translateY(-5px) rotate(1deg)}}
+@keyframes walk{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-9px) rotate(1.5deg)}}
+@keyframes nod{50%{transform:translateY(6px)}}
+
+/* Face */
+.mouth{opacity:0;transition:opacity .2s}
+#stage[data-m="neutral"] .m-neutral,#stage[data-m="smile"] .m-smile,#stage[data-m="frown"] .m-frown,
+#stage[data-m="o"] .m-o,#stage[data-m="laugh"] .m-laugh,#stage[data-m="smirk"] .m-smirk{opacity:1}
+.eye{transition:transform .25s;transform-origin:center}
+.blink{transform-origin:center;animation:blink 4.6s infinite}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+.pupil{transition:transform .35s}
+#stage[data-e="squint"] .eye{transform:scaleY(.5)}
+#stage[data-e="closed"] .eye{transform:scaleY(.1)}
+#stage[data-e="wide"] .eye{transform:scale(1.2)}
+#stage[data-e="side"] .pupil{transform:translateX(-5px)}
+#stage[data-e="down"] .pupil{transform:translateY(3px)}
+.brow{transition:transform .3s;transform-origin:center}
+#stage[data-b="raised"] .brow{transform:translateY(-7px)}
+#stage[data-b="sad"] .brow-l{transform:rotate(-15deg) translateY(-2px)}
+#stage[data-b="sad"] .brow-r{transform:rotate(15deg) translateY(-2px)}
+.blush{opacity:0;transition:opacity .4s}
+#stage[data-bl="1"] .blush{opacity:.65}
+
+/* Props */
+.prop{opacity:0;transition:opacity .4s}
+.wave #handWave,.handhead #handHead,.point #handPoint,.cig #cig,.smoke #smoke,.lighter #lighter,.drips #drips,.pet #petHand,.bark #bark,.cup-on #hisCup{opacity:1}
+#handWave .arm{transform-origin:50% 100%;animation:wave .6s ease-in-out infinite alternate}
+@keyframes wave{from{transform:rotate(-8deg)}to{transform:rotate(10deg)}}
+#handHead .arm{transform-origin:50% 100%;animation:scratch .25s ease-in-out infinite alternate}
+@keyframes scratch{to{transform:rotate(4deg)}}
+#petHand .rub{animation:rub .5s ease-in-out infinite alternate}
+@keyframes rub{from{transform:translateX(-10px)}to{transform:translateX(10px)}}
+#smoke path{animation:smoke 2.6s ease-out infinite;opacity:0}
+#smoke path:nth-child(2){animation-delay:.9s}#smoke path:nth-child(3){animation-delay:1.7s}
+@keyframes smoke{0%{opacity:0;transform:translateY(0) scale(.6)}20%{opacity:.7}100%{opacity:0;transform:translate(14px,-90px) scale(1.6)}}
+.cigout #cig{animation:cigout 1.5s ease-in .7s forwards}
+.cigout #smoke{animation:fadeout 1s .7s forwards}
+@keyframes cigout{to{transform:translate(30px,110px) rotate(50deg);opacity:0}}
+@keyframes fadeout{to{opacity:0}}
+.flame{transform-origin:50% 100%;animation:flicker .12s ease-in-out infinite alternate}
+@keyframes flicker{to{transform:scale(.85,1.12)}}
+#drips ellipse{animation:drip 1.1s ease-in infinite}
+#drips ellipse:nth-child(2){animation-delay:.4s}#drips ellipse:nth-child(3){animation-delay:.75s}
+@keyframes drip{from{transform:translateY(0);opacity:1}to{transform:translateY(70px);opacity:0}}
+#bark path{animation:barkpulse .35s ease-in-out infinite alternate}
+@keyframes barkpulse{to{transform:scale(1.25);opacity:.4}}
+
+#dog{transform-box:view-box;transform-origin:0 0;transform:translate(-260px,520px);transition:transform 1.1s cubic-bezier(.3,.7,.2,1)}
+.dog-side #dog{transform:translate(292px,548px)}
+.dog-near #dog{transform:translate(318px,548px)}
+.dog-close #dog{transform:translate(300px,598px) scale(1.5)}
+#tail{transform-origin:100% 100%;animation:wag .22s ease-in-out infinite alternate}
+@keyframes wag{from{transform:rotate(-18deg)}to{transform:rotate(18deg)}}
+
+#rain,#rainShade{opacity:0;transition:opacity .6s}
+.rain #rain{opacity:1}.rain #rainShade{opacity:.45}
+#rain line{animation:fall .55s linear infinite}
+@keyframes fall{from{transform:translate(0,-140px)}to{transform:translate(-30px,720px)}}
+
+#jacket{transform-box:view-box;transform:translateY(-260px);transition:transform .9s cubic-bezier(.3,.7,.2,1) .25s}
+.jacket #jacket{transform:none}
+#reach,#offer{opacity:0;transform-box:view-box;transform:translate(40px,220px);transition:transform .7s cubic-bezier(.3,.7,.2,1) .2s,opacity .4s .2s}
+.reach #reach,.offer #offer{opacity:1;transform:none}
+#roof{transform-box:view-box;transform:translateY(-180px);transition:transform .7s cubic-bezier(.3,.7,.2,1)}
+.roof #roof{transform:none;transition-delay:1.6s}
+#cam{transform-box:view-box;transform-origin:400px 300px}
+.camrun #cam{animation:camrun .16s ease-in-out 10 alternate}
+@keyframes camrun{from{transform:translate(-6px,4px) scale(1.04)}to{transform:translate(6px,-6px) scale(1.06)}}
+.pop{opacity:0;transform:scale(.3);transform-origin:center;transition:opacity .25s,transform .35s cubic-bezier(.3,1.6,.5,1)}
+#swear,#haha{display:none}
+.haha #haha text{animation:hahabob .3s ease-in-out infinite alternate}
+@keyframes hahabob{to{transform:translateY(-6px)}}
+.steam path{animation:steam 3s ease-in-out infinite;opacity:0}
+.steam path:nth-child(2){animation-delay:1.4s}
+@keyframes steam{0%{opacity:0;transform:translateY(0)}30%{opacity:.5}100%{opacity:0;transform:translateY(-34px)}}
+.bokeh circle{animation:twinkle 5s ease-in-out infinite alternate}
+.bokeh circle:nth-child(2n){animation-delay:-2s}.bokeh circle:nth-child(3n){animation-delay:-3.5s}
+@keyframes twinkle{to{opacity:.25}}
+
+/* ---------- White bubble ---------- */
+.dock{position:fixed;z-index:5;left:0;right:0;bottom:0;display:flex;justify-content:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-bottom:calc(var(--bar) + 12px + env(safe-area-inset-bottom,0px))}
+.bubble{width:min(560px,100%);background:var(--paper);color:var(--ink);border-radius:26px;padding:20px 20px 18px;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.65);display:grid;gap:14px;
+  transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .35s;max-height:calc(100dvh - 150px);overflow:auto}
+.bubble.hide{transform:translateY(120%) scale(.94);opacity:0;pointer-events:none}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:.06em;text-transform:uppercase}
+.part{color:var(--accent)}
+.count{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:0}
+.q{font-family:var(--display);font-weight:400;font-size:clamp(1.15rem,3.4vw,1.45rem);line-height:1.3;text-wrap:balance;margin:0}
+.timer{display:grid;gap:5px}
+.track{height:6px;background:var(--line);border-radius:6px;overflow:hidden}
+.fill{height:100%;background:var(--accent);border-radius:6px;transform-origin:left}
+.fill.low{background:var(--bad)}
+.secs{font-family:var(--mono);font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums;justify-self:end}
+.opts{display:grid;gap:8px}
+.opts.cols{grid-template-columns:repeat(auto-fit,minmax(100px,1fr))}
+.opt{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:15px;
+  background:#f4f5f9;border:1.5px solid transparent;font-weight:600;font-size:15px;color:var(--ink);line-height:1.3;transition:background .15s,border-color .15s,transform .1s}
+.opt:hover{background:#eaf0ff;border-color:#c9d8ff}
+.opt:active{transform:scale(.98)}
+.opt:focus-visible{border-color:var(--accent);outline:3px solid #c9d8ff}
+.key{flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:var(--paper);border:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;padding:14px 18px;border-radius:15px;background:var(--ink);color:var(--paper);font-weight:700;font-size:15px}
+.btn:focus-visible{outline:3px solid #c9d8ff}
+.btn.ghost{background:#f4f5f9;color:var(--ink)}
+.lede{margin:0;color:var(--ink-soft);font-size:15px;line-height:1.55}
+.summary{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.summary li{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:start;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.summary .n{font-family:var(--mono);font-size:11px;color:var(--ink-soft);padding-top:2px}
+.summary .qq{color:var(--ink-soft);min-width:0}
+.summary .qq b{display:block;color:var(--ink);font-weight:600}
+.mark{font-weight:700;font-size:12px;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.mark.ok{background:#e3f6ec;color:var(--good)}.mark.no{background:#fbe6e6;color:var(--bad)}.mark.act{background:#eef1f8;color:var(--ink-soft)}
+.score{display:flex;align-items:baseline;gap:8px}
+.score strong{font-family:var(--display);font-size:2.3rem;font-weight:400;font-variant-numeric:tabular-nums}
+.score span{color:var(--ink-soft);font-size:14px}
+.final{margin:0;font-family:var(--display);font-size:1.08rem;line-height:1.45;text-wrap:balance}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* Added scenes: anger, passerby, hearts, lightning */
+#stage[data-b="angry"] .brow-l{transform:rotate(16deg) translateY(3px)}
+#stage[data-b="angry"] .brow-r{transform:rotate(-16deg) translateY(3px)}
+#flush,#anger{opacity:0;transition:opacity .4s}
+.angry #flush{opacity:.35;transition-delay:.8s}
+.angry #anger{opacity:1;transition-delay:.8s;animation:throb .4s ease-in-out .8s infinite alternate}
+#anger{transform-origin:center}
+@keyframes throb{to{transform:scale(1.2)}}
+#passer{transform-box:view-box;transform:translateX(900px);opacity:0}
+.passer #passer{opacity:1;animation:passby 2.4s cubic-bezier(.4,0,.6,1) forwards}
+#passer .legs{transform-origin:50% 0;animation:stride .3s ease-in-out infinite alternate}
+@keyframes stride{from{transform:skewX(-8deg)}to{transform:skewX(8deg)}}
+@keyframes passby{0%{transform:translateX(900px)}100%{transform:translateX(-900px)}}
+.passer.stumble #guyAnim{animation:stumble 1.1s ease-out .85s}
+.passer.swear #swear{transition-delay:1.15s}
+.hearts #hearts path{animation:heart 2.4s ease-out forwards}
+#hearts path{opacity:0;transform-origin:center}
+#hearts path:nth-child(2){animation-delay:.25s!important}#hearts path:nth-child(3){animation-delay:.5s!important}
+#hearts path:nth-child(4){animation-delay:.7s!important}#hearts path:nth-child(5){animation-delay:.95s!important}
+@keyframes heart{0%{opacity:0;transform:translateY(20px) scale(.3)}20%{opacity:1;transform:translateY(0) scale(1.1)}100%{opacity:0;transform:translateY(-120px) scale(.9) rotate(12deg)}}
+#flash{opacity:0;pointer-events:none}
+.flash #flash{animation:flash 2.6s ease-out}
+@keyframes flash{0%,100%{opacity:0}6%{opacity:.85}10%{opacity:.1}14%{opacity:.6}30%{opacity:0}}
+#bolt{opacity:0}
+.flash #bolt{animation:flash 2.6s ease-out}
+/* v5: cinematic pass + new scenes */
+.bgblur{filter:blur(var(--bgb,2px));transition:filter .9s ease}
+#motes circle{animation:mote 9s ease-in-out infinite alternate;opacity:.0}
+#stage[data-scene="cafe"] #motes circle{opacity:.55}
+@keyframes mote{from{transform:translate(0,0)}to{transform:translate(40px,-60px)}}
+#puddles{opacity:0;transition:opacity 1s}
+.rain #puddles{opacity:1}
+#puddles ellipse{animation:ripple 1.4s ease-out infinite;transform-origin:center}
+#puddles ellipse:nth-child(2n){animation-delay:.5s}#puddles ellipse:nth-child(3n){animation-delay:.9s}
+@keyframes ripple{from{transform:scale(.2);opacity:.9}to{transform:scale(1.4);opacity:0}}
+.hairsway{transform-origin:50% 100%;animation:sway 5s ease-in-out infinite}
+@keyframes sway{50%{transform:rotate(1.2deg) translateX(1px)}}
+.walk .hairsway,.runaway .hairsway,.laughing .hairsway{animation-duration:.5s}
+
+@keyframes pushin{from{transform:scale(1)}to{transform:scale(1.07) translateY(10px)}}
+
+@keyframes pullout{from{transform:scale(1.04)}to{transform:scale(.98)}}
+.fadecut{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:2;transition:opacity .28s}
+.fadecut.on{opacity:1}
+.letter{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(255,170,90,.08),transparent 40%,rgba(30,60,140,.10))}
+/* slip */
+.slip #cam{animation:slip 1.3s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes slip{0%{transform:none}35%{transform:rotate(-13deg) translate(-30px,80px)}100%{transform:rotate(-4deg) translate(-8px,26px)}}
+.caught #cam{animation:caught 1.4s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes caught{0%{transform:rotate(-4deg) translate(-8px,26px)}25%{transform:rotate(-9deg) translate(-16px,60px)}100%{transform:none}}
+.fell #cam{animation:fell 1s cubic-bezier(.5,0,.8,.5) forwards}
+@keyframes fell{0%{transform:rotate(-4deg) translate(-8px,26px)}100%{transform:rotate(-16deg) translate(-40px,150px)}}
+#catch{opacity:0;transform-box:view-box;transform:translate(0,260px);transition:transform .45s cubic-bezier(.3,1.3,.5,1) .15s,opacity .2s .15s}
+.caught #catch{opacity:1;transform:none}
+#phone{opacity:0;transition:opacity .3s .5s}
+.photo #phone{opacity:1}
+.photo #flash{animation:camflash .5s ease-out 1.3s 2}
+@keyframes camflash{0%{opacity:0}10%{opacity:.9}100%{opacity:0}}
+/* ice cream */
+#cart{opacity:0;transition:opacity .6s}
+.cart #cart{opacity:1}
+#hisCone,#yourCone,#giveCone{opacity:0;transition:opacity .4s .2s}
+.hiscone #hisCone,.yourcone #yourCone{opacity:1}
+.givecone #giveCone{opacity:1;transform-box:view-box;animation:give .9s cubic-bezier(.3,.7,.2,1) .3s both}
+@keyframes give{from{transform:translateY(240px)}to{transform:none}}
+.lick #hisCone .scoop{animation:lick .5s ease-in-out .6s 4 alternate}
+@keyframes lick{to{transform:translate(-14px,10px) rotate(-8deg)}}
+#yourCone .bitten{opacity:0;transition:opacity .1s 1.5s}
+.bite #yourCone .bitten{opacity:1}
+.bite #yourCone .full{opacity:1;transition:opacity .1s 1.5s}
+.bite #yourCone .full{opacity:0}
+.bite #guy{transform:translate(40px,30px) scale(1.06);transition:transform .9s cubic-bezier(.3,.7,.2,1) .3s}
+.bite #yourCone{transform-box:view-box;animation:offerup 3s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes offerup{0%{transform:none}35%,62%{transform:translate(-108px,-168px) rotate(-12deg)}100%{transform:translate(-10px,-10px)}}
+.bite #yourCone .bitten,.bite #yourCone .full{transition-delay:1.25s}
+#talk{display:none}
+/* v6: cinema layer */
+.grade{position:absolute;inset:0;pointer-events:none;mix-blend-mode:soft-light;background:var(--grade,transparent);opacity:var(--gradeo,0);transition:background 1.2s,opacity 1.2s}
+.desat{position:absolute;inset:0;pointer-events:none;mix-blend-mode:saturation;background:#808080;opacity:0;transition:opacity 1s}
+.screen.sadgrade .desat{opacity:.38}
+.leak{position:absolute;inset:-20%;pointer-events:none;mix-blend-mode:screen;opacity:0;
+  background:radial-gradient(30% 45% at 50% 50%,rgba(255,170,80,.75),rgba(255,90,60,.25) 50%,transparent 75%)}
+.screen.leakon .leak{animation:leak 2.8s ease-out}
+@keyframes leak{0%{opacity:0;transform:translateX(-45%) skewX(-12deg)}30%{opacity:.85}100%{opacity:0;transform:translateX(45%) skewX(-12deg)}}
+.ots{position:absolute;left:-10vw;bottom:-6vh;width:min(48vw,420px);height:72vh;pointer-events:none;filter:blur(14px);
+  opacity:0;transform:translateX(-30%);transition:opacity .7s,transform .9s cubic-bezier(.3,.7,.2,1)}
+.ots::before{content:"";position:absolute;left:18%;top:8%;width:62%;height:44%;border-radius:50% 50% 46% 46%;background:#2a1d18}
+.ots::after{content:"";position:absolute;left:-6%;top:44%;width:120%;height:70%;border-radius:48% 48% 0 0;background:#1d2130}
+.screen.otson .ots{opacity:.92;transform:none}
+.titlecard{position:absolute;inset:0;z-index:4;display:grid;place-items:center;align-content:center;gap:14px;background:#000;color:#f3efe6;
+  text-align:center;padding-inline:max(24px,env(safe-area-inset-left,0px));opacity:0;pointer-events:none;transition:opacity .6s}
+.titlecard.on{opacity:1}
+.titlecard small{font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--warm)}
+.titlecard h2{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(2rem,8vw,4.2rem);line-height:1.05;text-wrap:balance;letter-spacing:.01em}
+.titlecard.on h2{animation:titlein 2.2s cubic-bezier(.2,.7,.2,1) both}
+.titlecard.on small{animation:titlein 2.2s cubic-bezier(.2,.7,.2,1) .25s both}
+@keyframes titlein{from{opacity:0;letter-spacing:.25em;filter:blur(6px)}to{opacity:1;filter:none}}
+.bar{transition:height 1.2s cubic-bezier(.3,.7,.2,1)}
+.screen.wide .bar{height:calc(var(--bar) * 1.8)}
+.tc{font-variant-numeric:tabular-nums}
+.snd{all:unset;pointer-events:auto;cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--scene-text);
+  border:1px solid rgba(255,255,255,.3);padding:3px 8px;border-radius:999px}
+.snd:focus-visible{outline:2px solid var(--warm)}
+.hud-right{display:flex;gap:12px;align-items:center}
+@media (max-width:560px){#loc{display:none}}
+@media (max-width:380px){.tc{display:none}}
+.focusring{position:absolute;pointer-events:none;width:64px;height:64px;border:1.5px solid rgba(255,255,255,.7);border-radius:6px;opacity:0;
+  transform:translate(-50%,-50%) scale(1.4);transition:opacity .2s}
+.focusring.on{animation:focus .9s ease-out}
+@keyframes focus{0%{opacity:0;transform:translate(-50%,-50%) scale(1.5)}30%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+#stage[data-m="smile"]:not(.turnaway):not(.lookdown) #head{transform:rotate(3deg)}
+#stage[data-e="wide"] .brow{transform:translateY(-8px)}
+.laughing #head{animation:headlaugh .22s ease-in-out infinite alternate}
+@keyframes headlaugh{to{transform:rotate(-4deg) translateY(-3px)}}
+.rimlight{mix-blend-mode:screen;opacity:.55}
+#stage[data-scene="street"] .rimlight{opacity:.35}
+/* v7 */
+.nightsky{opacity:calc(var(--night,0) * .72);transition:opacity 2.5s}
+#stars{opacity:var(--night,0);transition:opacity 2.5s}
+#stars circle{animation:twinkle 3s ease-in-out infinite alternate}
+.streetlamp{opacity:calc(.45 + var(--night,0) * .55);transition:opacity 2.5s}
+.eyetrack{transition:transform .25s ease-out;transform:translate(var(--px,0px),var(--py,0px))}
+#stage[data-e="closed"] .eyetrack{transform:none}
+#nosecream{opacity:0}
+.bite #nosecream{opacity:1;transition:opacity .15s 1.45s}
+.cuphand{opacity:0}
+.idle-sip #hisCup{transform-box:view-box;transform-origin:260px 436px;animation:sip 2.6s ease-in-out}
+.idle-sip .cuphand{opacity:1}
+@keyframes sip{0%,100%{transform:none}30%,70%{transform:translate(132px,-196px) rotate(-22deg)}}
+#stage.idle-sip #head{transform:rotate(-3deg) translateY(4px)}
+#stage.idle-phone #phone{opacity:1}
+#stage.idle-phone .pupil{animation:none;transform:translateY(4px)}
+#stage.idle-phone #head{transform:rotate(5deg) translateY(6px)}
+#stage.idle-phone .armR{opacity:0}
+#stage.idle-hair #handHead{opacity:1}
+#stage.idle-hair .armR{opacity:0}
+#stage.idle-look .pupil{animation:none;transform:translateX(6px)}
+#stage.idle-look #head{transform:translateX(8px) rotate(4deg)}
+#stage.idle-tap .taphand{animation:tap .18s ease-in-out infinite alternate}
+#stage.idle-tap .taphand:nth-of-type(2){animation-delay:.09s}
+@keyframes tap{to{transform:translateY(-7px)}}
+#stage.standup #guy{transform:translateY(-110px) scale(1.04);transition:transform 1.4s cubic-bezier(.4,0,.2,1)}
+.fx{position:absolute;inset:0;pointer-events:none;z-index:2}
+.pop2{position:absolute;opacity:0;transform:scale(.3) rotate(-8deg);transition:opacity .2s,transform .4s cubic-bezier(.3,1.6,.5,1)}
+.pop-swear{right:max(10%,16px);top:30%;background:#fff;color:#1b1d26;font:700 clamp(18px,4.5vw,26px)/1 var(--mono);padding:16px 20px;
+  clip-path:polygon(0 20%,12% 0,24% 14%,40% 0,52% 14%,70% 0,80% 16%,100% 8%,92% 34%,100% 56%,86% 66%,96% 92%,72% 84%,58% 100%,44% 84%,24% 100%,20% 78%,0 84%,8% 58%,0 40%)}
+.pop-haha{left:50%;top:26%;font:400 clamp(34px,10vw,60px)/1 var(--display);color:#ffd27a;-webkit-text-stroke:2px #14161d;text-shadow:3px 3px 0 #14161d;white-space:nowrap}
+.screen.fx-swear .pop-swear{opacity:1;transform:rotate(-4deg);transition-delay:.45s}
+.screen.fx-swear.fx-late .pop-swear{transition-delay:1.15s}
+.screen.fx-haha .pop-haha{opacity:1;transform:translateX(-50%) rotate(-6deg);animation:hahabob2 .3s ease-in-out .4s infinite alternate}
+@keyframes hahabob2{to{transform:translateX(-50%) translateY(-8px) rotate(4deg)}}
+.lens{position:absolute;inset:0;pointer-events:none;z-index:2;opacity:0;transition:opacity .8s}
+.screen.lensrain .lens{opacity:1}
+.lens i{position:absolute;width:var(--s);height:calc(var(--s) * 1.2);border-radius:50% 50% 48% 48%;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(170,200,255,.12) 45%,rgba(20,30,60,.18) 70%,transparent 72%);
+  box-shadow:inset -1px -2px 3px rgba(255,255,255,.25);animation:slide var(--d) linear var(--w) infinite}
+@keyframes slide{0%{transform:translateY(0)}60%{transform:translateY(8px)}100%{transform:translateY(46vh);opacity:0}}
+.coat{position:absolute;inset:0;pointer-events:none;z-index:1;background:radial-gradient(120% 80% at 50% 110%,transparent 40%,rgba(5,8,20,.65));opacity:0;transition:opacity .9s .3s}
+.screen.undercoat .coat{opacity:1}
+.smokefx{position:absolute;left:-30%;top:10%;width:90%;height:60%;pointer-events:none;z-index:2;opacity:0;filter:blur(30px);
+  background:radial-gradient(closest-side,rgba(220,224,235,.55),transparent)}
+.screen.smokeon .smokefx{animation:smokepass 3s ease-in-out .6s}
+@keyframes smokepass{0%{opacity:0;transform:translateX(0)}40%{opacity:1}100%{opacity:0;transform:translateX(90%)}}
+.pulse{display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.pulse b{display:inline-block;width:11px;height:10px;background:#ff5c7a;clip-path:path("M5.5 10 L0.8 5 A2.6 2.6 0 0 1 5.5 1.6 A2.6 2.6 0 0 1 10.2 5Z");animation:beat var(--beat,.83s) ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}15%{transform:scale(1.35)}30%{transform:scale(1)}45%{transform:scale(1.2)}}
+.bpmchart{display:grid;gap:4px}
+.bpmchart small{font-size:12px;color:var(--ink-soft);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.bpmchart svg{width:100%;height:56px;display:block}
+.music{pointer-events:auto;color:var(--scene-text);text-decoration:none;font-family:var(--mono);font-size:11px;letter-spacing:.12em;border:1px solid rgba(255,255,255,.3);padding:3px 8px;border-radius:999px}
+.music:focus-visible{outline:2px solid var(--warm)}
+@media (max-width:460px){.music .mlabel{display:none}}
+
+/* v8: telefon */
+.dock{pointer-events:none}
+.bubble{pointer-events:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.opt{min-height:48px}
+.fs{all:unset;pointer-events:auto;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--scene-text);border:1px solid rgba(255,255,255,.3);padding:2px 8px;border-radius:999px}
+.fs:focus-visible{outline:2px solid var(--warm)}
+@media (max-width:600px){
+  .hud-top{gap:6px}
+  .hud-row{font-size:10px;letter-spacing:.08em}
+  .hud-right{gap:8px}
+  .caption{font-size:11px;padding:5px 10px;line-height:1.45}
+  .bubble{border-radius:22px;padding:16px 16px 14px;gap:12px}
+  .opt{font-size:15px;padding:11px 12px}
+  .lede{font-size:14px}
+  .bgblur{filter:blur(min(var(--bgb,2px),2px))}
+}
+@media (max-width:360px){
+  .opts.cols{grid-template-columns:1fr}
+  .q{font-size:1.08rem}
+}
+/* yatay telefon: soru kartı sağda, sahne solda */
+@media (orientation:landscape) and (max-height:520px){
+  :root{--bar:12px}
+  .dock{top:0;align-items:center;justify-content:flex-end;
+    padding-top:calc(var(--bar) + 8px + env(safe-area-inset-top,0px));padding-bottom:calc(var(--bar) + 8px + env(safe-area-inset-bottom,0px))}
+  .bubble{width:min(420px,46vw);max-height:calc(100dvh - var(--bar)*2 - 24px);padding:12px 14px;gap:9px;border-radius:18px}
+  .bubble.hide{transform:translateX(120%)}
+  .q{font-size:1rem}
+  .opt{min-height:40px;padding:8px 12px;font-size:14px}
+  .opts{gap:6px}
+  .lede{font-size:13px;line-height:1.45}
+  .btn{padding:11px 16px}
+  .caption{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(var(--bar) + 10px + env(safe-area-inset-bottom,0px));max-width:min(44vw,28rem);text-align:left;font-size:10.5px}
+  .reaction-bar{justify-self:start}
+  .summary li{padding:6px 0}
+  .score strong{font-size:1.8rem}
+  .titlecard h2{font-size:clamp(1.8rem,7vh,3rem)}
+}
+/* burkulma + sırtta taşıma */
+.sprain #cam{animation:sprain 1.4s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes sprain{0%{transform:none}30%{transform:rotate(-10deg) translate(-20px,110px)}60%{transform:rotate(-6deg) translate(-10px,140px)}100%{transform:rotate(-4deg) translate(0,130px)}}
+#backview{opacity:0;transform-box:view-box;transform-origin:400px 640px}
+.piggyback #guy{opacity:0;transition:opacity .3s}
+.piggyback #backview{opacity:1;animation:pigrise .9s cubic-bezier(.3,.7,.2,1),pigbob .42s ease-in-out .9s infinite alternate}
+@keyframes pigrise{from{transform:translateY(220px) scale(.9)}to{transform:none}}
+@keyframes pigbob{from{transform:translateY(0) rotate(-1.5deg)}to{transform:translateY(-14px) rotate(1.5deg)}}
+.piggyback #buildings{animation:scrollcity 6s linear infinite}
+@keyframes scrollcity{to{transform:translateX(-260px)}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="screen" id="screenEl">
+<svg id="stage" viewBox="-200 0 1200 600" preserveAspectRatio="xMidYMid slice" data-scene="cafe" data-m="smile" data-e="squint" data-b="raised" data-bl="1" aria-label="Animasyonlu sahne">
+  <defs>
+    <linearGradient id="gWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a281f"/><stop offset="1" stop-color="#5e3d2a"/></linearGradient>
+    <linearGradient id="gWin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2540"/><stop offset="1" stop-color="#3b3355"/></linearGradient>
+    <linearGradient id="gSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#262c50"/><stop offset=".6" stop-color="#7a5b86"/><stop offset="1" stop-color="#e59a72"/></linearGradient>
+    <linearGradient id="gWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7b4e2e"/><stop offset="1" stop-color="#4a2e1b"/></linearGradient>
+    <radialGradient id="gLamp"><stop offset="0" stop-color="#ffd590" stop-opacity=".75"/><stop offset="1" stop-color="#ffd590" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gFaceShade" cx=".38" cy=".35" r=".75"><stop offset=".55" stop-color="#c98c6a" stop-opacity="0"/><stop offset="1" stop-color="#b9785a" stop-opacity=".45"/></radialGradient>
+    <pattern id="pAwning" width="60" height="10" patternUnits="userSpaceOnUse"><rect width="30" height="10" fill="#c0392b"/><rect x="30" width="30" height="10" fill="#f3e7d3"/></pattern>
+  </defs>
+  <g id="cam"><g id="zoom"><g id="hand">
+    <!-- Café background -->
+    <g class="scene-layer cafe-only">
+      <rect x="-500" y="-80" width="1800" height="800" fill="url(#gWall)"/>
+      <rect x="40" y="55" width="250" height="270" rx="10" fill="url(#gWin)"/>
+      <g class="bokeh bgblur" fill="#ffcf85">
+        <circle cx="80" cy="110" r="14" opacity=".55"/><circle cx="150" cy="90" r="9" opacity=".7"/><circle cx="230" cy="130" r="18" opacity=".45"/>
+        <circle cx="110" cy="200" r="11" opacity=".6"/><circle cx="260" cy="230" r="8" opacity=".7"/><circle cx="190" cy="270" r="15" opacity=".4"/>
+      </g>
+      <rect x="40" y="55" width="250" height="270" rx="10" fill="none" stroke="#2a1c15" stroke-width="10"/>
+      <line x1="165" y1="55" x2="165" y2="325" stroke="#2a1c15" stroke-width="7"/>
+      <rect x="-250" y="350" width="1300" height="8" fill="#2a1c15" opacity=".5"/>
+      <g id="motes" fill="#ffe6b0"></g>
+      <line x1="640" y1="0" x2="640" y2="90" stroke="#1c120d" stroke-width="3"/>
+      <circle cx="640" cy="125" r="140" fill="url(#gLamp)"/>
+      <path d="M605 118 Q640 70 675 118 Z" fill="#1f3a34"/>
+      <ellipse cx="640" cy="119" rx="14" ry="5" fill="#ffe1a8"/>
+      <rect x="-180" y="120" width="150" height="190" rx="6" fill="#2b1d16"/>
+      <rect x="-165" y="140" width="120" height="70" rx="4" fill="#3c2a20"/>
+      <rect x="760" y="160" width="40" height="150" rx="4" fill="#2b1d16"/>
+      <circle cx="780" cy="150" r="34" fill="#2f4d34"/><circle cx="760" cy="128" r="22" fill="#3b6142"/><circle cx="805" cy="132" r="20" fill="#3b6142"/>
+    </g>
+    <!-- Street background -->
+    <g class="scene-layer street-only">
+      <rect x="-500" y="-80" width="1800" height="800" fill="url(#gSky)"/>
+      <rect class="nightsky" x="-500" y="-80" width="1800" height="800" fill="#060918"/>
+      <g id="stars" fill="#fff"></g>
+      <g class="bgblur"><g id="buildings"></g></g>
+      <g transform="translate(-170 0)"><g id="cart">
+        <path d="M790 300 Q880 250 970 300 Z" fill="#f05a7e"/><path d="M820 300 Q850 270 880 262 Q860 280 850 300Z" fill="#fff" opacity=".7"/>
+        <line x1="880" y1="300" x2="880" y2="380" stroke="#ddd" stroke-width="5"/>
+        <rect x="805" y="378" width="150" height="100" rx="10" fill="#f6efe3"/>
+        <rect x="805" y="378" width="150" height="22" rx="8" fill="#5fc3c9"/>
+        <text x="880" y="446" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="17" fill="#d1406a">DONDURMA</text>
+        <circle cx="830" cy="490" r="16" fill="#2a2a2a"/><circle cx="930" cy="490" r="16" fill="#2a2a2a"/>
+      </g></g>
+      <line x1="690" y1="140" x2="690" y2="520" stroke="#141726" stroke-width="10"/>
+      <path d="M662 140 h56 l-8 -24 h-40 z" fill="#141726"/>
+      <circle class="streetlamp" cx="690" cy="150" r="110" fill="url(#gLamp)"/>
+      <rect x="-500" y="505" width="1800" height="300" fill="#2b2e3d"/>
+      <rect x="-500" y="500" width="1800" height="8" fill="#43465a"/><rect x="-500" y="600" width="1800" height="4" fill="#3a3d50"/>
+      <g id="puddles" fill="none" stroke="#a9bdf0" stroke-width="2.5">
+        <ellipse cx="80" cy="560" rx="60" ry="10"/><ellipse cx="620" cy="575" rx="70" ry="12"/><ellipse cx="900" cy="550" rx="50" ry="8"/><ellipse cx="-120" cy="580" rx="60" ry="10"/><ellipse cx="300" cy="590" rx="44" ry="8"/>
+      </g>
+    </g>
+    <rect id="rainShade" x="-500" y="-80" width="1800" height="800" fill="#0b1020"/>
+    <path id="bolt" d="M120 20 L90 120 L125 120 L80 240 L170 100 L130 100 L160 20Z" fill="#fff8c9"/>
+    <g id="passer" fill="#11131d">
+      <circle cx="400" cy="150" r="52"/>
+      <path d="M318 600 L322 270 Q330 210 400 204 Q470 210 478 270 L482 600Z"/>
+      <path d="M330 280 L300 430" stroke="#11131d" stroke-width="34" stroke-linecap="round"/>
+      <rect x="350" y="300" width="100" height="20" rx="6" fill="#2a2f45"/>
+    </g>
+
+    <!-- The guy -->
+    <g id="guy"><g id="guyAnim">
+      <g id="handWave" class="prop"><g class="arm">
+        <line class="sleeve" x1="548" y1="430" x2="566" y2="190" stroke-width="56"/>
+        <ellipse class="skin" cx="568" cy="168" rx="22" ry="26"/>
+        <rect class="skin" x="552" y="132" width="9" height="26" rx="4.5"/><rect class="skin" x="563" y="128" width="9" height="28" rx="4.5"/><rect class="skin" x="574" y="132" width="9" height="26" rx="4.5"/>
+      </g></g>
+      <g class="scene-layer street-only legs-wrap">
+        <g class="leg legL"><path d="M300 590 L398 590 L392 842 L318 842Z" fill="#46679c"/><path d="M314 842 h82 q16 0 16 14 v10 h-104z" fill="#f2f2ef"/></g>
+        <g class="leg legR"><path d="M402 590 L500 590 L482 842 L408 842Z" fill="#3f5f92"/><path d="M404 842 h82 q16 0 16 14 v10 h-104z" fill="#f2f2ef"/></g>
+      </g>
+      <g class="scene-layer street-only sidearms">
+        <g class="sarm armL"><line class="sleeve" x1="232" y1="356" x2="206" y2="580" stroke-width="60"/><circle class="skin" cx="204" cy="604" r="25"/></g>
+        <g class="sarm armR"><line class="sleeve" x1="568" y1="356" x2="594" y2="580" stroke-width="60"/><circle class="skin" cx="596" cy="604" r="25"/></g>
+      </g>
+      <g id="dust" fill="#8a8ea3"><circle cx="330" cy="850" r="40"/><circle cx="300" cy="840" r="30"/><circle cx="350" cy="830" r="26"/></g>
+      <path class="sweater" d="M214 640 L206 380 Q200 318 262 300 Q330 284 372 268 L428 268 Q470 284 538 300 Q600 318 594 380 L586 640 Z"/>
+      <path class="sweater-dk" d="M206 380 Q212 330 256 308 Q236 340 236 400Z" opacity=".55"/>
+      <path class="sweater-dk" d="M594 380 Q588 330 544 308 Q564 340 564 400Z" opacity=".55"/>
+      <path d="M292 404 Q350 446 394 418 M406 418 Q450 446 508 404" stroke="var(--sweater-dk)" stroke-width="5" fill="none" stroke-linecap="round" opacity=".8"/>
+      <path d="M400 420 L400 520 M346 470 Q372 480 394 474 M406 474 Q428 480 454 470" stroke="var(--sweater-dk)" stroke-width="3.5" fill="none" stroke-linecap="round" opacity=".45"/>
+      
+      <path class="skin-sh" d="M368 230 L432 230 L438 276 Q470 284 490 292 L310 292 Q330 284 362 276Z"/>
+      <path fill="var(--tee)" d="M368 284 Q400 330 432 284 Q400 296 368 284Z"/>
+      <path class="sweater-dk" d="M364 284 Q400 342 436 284 L430 282 Q400 326 370 282Z"/>
+      <g id="handPoint" class="prop">
+        <line class="sleeve" x1="276" y1="340" x2="232" y2="470" stroke-width="56"/>
+        <ellipse class="skin" cx="226" cy="492" rx="24" ry="20"/>
+      </g>
+      <g id="alarm"><path d="M384 -60 L416 -60 L408 30 L392 30Z" fill="#ffd23a" stroke="#14161d" stroke-width="6"/><circle cx="400" cy="58" r="16" fill="#ffd23a" stroke="#14161d" stroke-width="6"/></g>
+      <g id="head">
+        <ellipse class="skin" cx="334" cy="182" rx="11" ry="17"/><ellipse class="skin" cx="466" cy="182" rx="11" ry="17"/>
+        <ellipse class="skin" cx="400" cy="176" rx="66" ry="80"/>
+        <path class="skin" d="M336 186 Q338 238 368 252 Q400 264 432 252 Q462 238 464 186Z"/>
+        <ellipse cx="400" cy="176" rx="66" ry="80" fill="url(#gFaceShade)"/>
+        <g class="hairsway"><path class="hair" d="M330 196 C316 112 354 74 404 74 C458 74 490 112 472 196 C468 156 454 134 434 124 C416 144 382 148 354 132 C342 150 334 170 330 196Z"/>
+        <path class="hair-hi" d="M354 132 C370 100 424 92 448 118 C432 128 402 138 354 132Z"/>
+        <path class="hair-sh" d="M434 124 C452 132 466 150 472 196 C476 160 470 140 456 126Z" opacity=".8"/>
+        <path class="rimlight" d="M336 170 C326 116 360 80 404 78 C372 90 346 118 340 170Z" fill="#fff2c4"/>
+        <path class="rimlight" d="M404 78 C452 80 482 112 470 182 C470 130 446 96 404 78Z" fill="#ffd28a"/>
+        <path class="hair" d="M354 132 C346 120 352 104 366 98 C360 112 362 122 370 130Z"/></g>
+        <g class="brow brow-l"><path d="M360 160 Q374 152 389 158" stroke="var(--hair-sh)" stroke-width="5.5" fill="none" stroke-linecap="round"/></g>
+        <g class="brow brow-r"><path d="M411 158 Q426 152 440 160" stroke="var(--hair-sh)" stroke-width="5.5" fill="none" stroke-linecap="round"/></g>
+        <g class="eye"><g class="blink">
+          <ellipse cx="374" cy="178" rx="12.5" ry="9" fill="#fff"/>
+          <g class="eyetrack"><g class="pupil"><circle cx="374" cy="178" r="6.8" fill="var(--iris)" stroke="var(--iris-dk)" stroke-width="1.5"/><circle cx="374" cy="178" r="3" fill="#0e1830"/><circle cx="372" cy="175.5" r="1.7" fill="#fff"/></g></g>
+        </g></g>
+        <g class="eye"><g class="blink">
+          <ellipse cx="426" cy="178" rx="12.5" ry="9" fill="#fff"/>
+          <g class="eyetrack"><g class="pupil"><circle cx="426" cy="178" r="6.8" fill="var(--iris)" stroke="var(--iris-dk)" stroke-width="1.5"/><circle cx="426" cy="178" r="3" fill="#0e1830"/><circle cx="424" cy="175.5" r="1.7" fill="#fff"/></g></g>
+        </g></g>
+        <path d="M400 188 Q393 206 403 210" stroke="var(--skin-sh)" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <g id="nosecream"><ellipse cx="401" cy="205" rx="10" ry="6.5" fill="#cdeedd"/><ellipse cx="398" cy="203" rx="3" ry="2" fill="#fff"/></g>
+        <ellipse id="flush" cx="400" cy="185" rx="62" ry="70" fill="#ff4d4d"/>
+        <g id="anger" stroke="#e23b3b" stroke-width="5" fill="none" stroke-linecap="round">
+          <path d="M470 96 q8 8 16 0"/><path d="M470 120 q8 -8 16 0"/><path d="M466 100 q-8 8 0 16"/><path d="M490 100 q8 8 0 16"/>
+        </g>
+        <ellipse class="blush" cx="355" cy="209" rx="12" ry="6" fill="#f39aa0"/><ellipse class="blush" cx="445" cy="209" rx="12" ry="6" fill="#f39aa0"/>
+        <g id="mouthAnchor">
+          <path class="mouth m-neutral" d="M386 228 Q400 233 414 228" stroke="#8a4a3e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          <path class="mouth m-smile" d="M381 223 Q400 248 419 223 Q400 231 381 223Z" fill="#8a3b3b"/>
+          <path class="mouth m-frown" d="M387 234 Q400 224 413 234" stroke="#8a4a3e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          <ellipse class="mouth m-o" cx="400" cy="231" rx="6.5" ry="8.5" fill="#6b2a2a"/>
+          <g class="mouth m-laugh"><path d="M379 221 Q400 260 421 221 Z" fill="#6f2626"/><ellipse cx="400" cy="240" rx="8" ry="5" fill="#d96a6a"/><path d="M382 222 L418 222 L416 227 L384 227Z" fill="#fff"/></g>
+          <path class="mouth m-smirk" d="M387 230 Q404 232 417 221" stroke="#8a4a3e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        </g>
+        <g id="cig" class="prop">
+          <rect x="414" y="226" width="36" height="6" rx="2" fill="#f5f2ea" transform="rotate(-8 414 229)"/>
+          <rect x="414" y="226" width="10" height="6" rx="2" fill="#e3a35e" transform="rotate(-8 414 229)"/>
+          <circle cx="449" cy="223" r="3.5" fill="#ff5a2a"/>
+        </g>
+        <g id="smoke" class="prop" fill="none" stroke="#d9dbe4" stroke-width="5" stroke-linecap="round">
+          <path d="M450 216 q-8 -12 2 -22 q8 -10 -2 -22"/><path d="M452 216 q8 -12 -2 -22 q-8 -10 2 -22"/><path d="M449 216 q-6 -14 4 -24"/>
+        </g>
+        <g id="drips" class="prop" fill="#9cc4ff">
+          <ellipse cx="346" cy="196" rx="3" ry="5"/><ellipse cx="452" cy="190" rx="3" ry="5"/><ellipse cx="400" cy="250" rx="3" ry="5"/>
+        </g>
+      </g>
+      <g id="phone">
+        <line class="sleeve" x1="545" y1="420" x2="500" y2="300" stroke-width="52"/>
+        <ellipse class="skin" cx="494" cy="290" rx="20" ry="17"/>
+        <rect x="462" y="210" width="62" height="104" rx="10" fill="#15161c" stroke="#3a3c48" stroke-width="3"/>
+        <circle cx="508" cy="228" r="6" fill="#4b5068"/><circle cx="478" cy="228" r="4" fill="#fffbe0"/>
+      </g>
+      <g id="hisCone">
+        <line class="sleeve" x1="545" y1="420" x2="505" y2="310" stroke-width="52"/>
+        <path d="M486 296 L524 296 L506 360Z" fill="#d9a35f"/><path d="M490 304 l30 0 M494 316 l22 0 M498 328 l14 0" stroke="#b07a3a" stroke-width="2"/>
+        <g class="scoop"><circle cx="505" cy="282" r="22" fill="#fbe3ea"/><circle cx="496" cy="262" r="16" fill="#7a4a35"/></g>
+        <ellipse class="skin" cx="505" cy="330" rx="18" ry="15"/>
+      </g>
+      <g id="lighter" class="prop">
+        <line class="sleeve" x1="545" y1="420" x2="480" y2="270" stroke-width="52"/>
+        <ellipse class="skin" cx="472" cy="252" rx="20" ry="17"/>
+        <rect x="462" y="226" width="16" height="24" rx="3" fill="#2f6df6"/>
+        <path class="flame" d="M470 226 q-7 -10 0 -22 q7 12 0 22Z" fill="#ffb44a"/>
+      </g>
+      <g id="handHead" class="prop"><g class="arm">
+        <line class="sleeve" x1="548" y1="430" x2="500" y2="170" stroke-width="56"/>
+        <ellipse class="skin" cx="488" cy="140" rx="22" ry="24"/>
+      </g></g>
+    </g></g>
+
+    <!-- Café table, his arms and cups -->
+    <g class="scene-layer cafe-only">
+      <path d="M-250 468 L1050 468 L1050 640 L-250 640 Z" fill="url(#gWood)"/>
+      <rect x="-250" y="462" width="1300" height="10" fill="#9a6640"/>
+      <rect class="sweater" x="226" y="440" width="160" height="46" rx="23"/>
+      <rect class="sweater" x="414" y="440" width="160" height="46" rx="23"/>
+      <ellipse class="skin taphand" cx="384" cy="466" rx="24" ry="15"/><ellipse class="skin taphand" cx="416" cy="466" rx="24" ry="15"/>
+      <g id="hisCup">
+        <ellipse class="skin cuphand" cx="292" cy="440" rx="17" ry="14"/>
+        <path d="M232 412 h46 l-5 48 h-36 z" fill="#f1ece4"/>
+        <path d="M276 422 q16 2 12 18 q-4 10 -14 8" stroke="#f1ece4" stroke-width="6" fill="none"/>
+        <ellipse cx="255" cy="412" rx="23" ry="5" fill="#6a3f22"/>
+        <g class="steam" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M248 404 q-6 -10 2 -20"/><path d="M262 404 q6 -10 -2 -20"/></g>
+      </g>
+      <g>
+        <path d="M600 520 h120 l-12 110 h-96 z" fill="#ffffff"/>
+        <ellipse cx="660" cy="520" rx="60" ry="13" fill="#7a4a29"/>
+        <ellipse cx="660" cy="519" rx="34" ry="6" fill="#c89a6a" opacity=".7"/>
+        <g class="steam" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"><path d="M640 505 q-8 -14 2 -28"/><path d="M676 505 q8 -14 -2 -28"/></g>
+      </g>
+    </g>
+
+    <!-- Dog -->
+    <g id="dog"><g>
+      <g id="tail"><path d="M-80 -60 Q-82 -36 -52 -12" stroke="#8a5a32" stroke-width="10" fill="none" stroke-linecap="round"/></g>
+      <rect class="dleg" x="-42" y="8" width="13" height="36" rx="6" fill="#8a5a32"/><rect class="dleg" x="-22" y="8" width="13" height="36" rx="6" fill="#9a6a40"/>
+      <rect class="dleg" x="20" y="8" width="13" height="36" rx="6" fill="#8a5a32"/><rect class="dleg" x="38" y="8" width="13" height="36" rx="6" fill="#9a6a40"/>
+      <ellipse cx="0" cy="0" rx="58" ry="31" fill="#b07a4a"/>
+      <ellipse cx="-6" cy="8" rx="30" ry="14" fill="#c99566"/>
+      <circle cx="58" cy="-34" r="27" fill="#b07a4a"/>
+      <path d="M40 -56 Q24 -32 42 -20 Q48 -40 52 -56Z" fill="#7a4c28"/>
+      <ellipse cx="80" cy="-26" rx="16" ry="11" fill="#d7aa7c"/>
+      <circle cx="94" cy="-29" r="5.5" fill="#1d1d1d"/>
+      <circle cx="64" cy="-42" r="3.8" fill="#1d1d1d"/>
+      <path d="M82 -16 q4 10 10 4" stroke="#1d1d1d" stroke-width="2" fill="none"/>
+      <g id="bark" class="prop" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round">
+        <path d="M108 -44 q10 14 0 28"/><path d="M120 -54 q16 24 0 48"/>
+      </g>
+      <g id="petHand" class="prop"><g class="rub">
+        <line class="sleeve" x1="66" y1="-66" x2="150" y2="-130" stroke-width="52"/>
+        <ellipse class="skin" cx="58" cy="-62" rx="24" ry="14"/>
+      </g></g>
+    </g></g>
+
+    <!-- Weather and POV overlays -->
+    <g id="rain" stroke="#c7d6ff" stroke-width="2" stroke-linecap="round" opacity=".7"></g>
+    <g id="roof">
+      <rect x="-250" y="-20" width="1300" height="78" fill="url(#pAwning)"/>
+      <g id="scallops"></g>
+      <rect x="-250" y="-20" width="1300" height="12" fill="#7d2219"/>
+    </g>
+    <g id="jacket">
+      <path class="sweater" d="M-250 -20 L1050 -20 L1050 70 Q820 150 400 130 Q-20 150 -250 70Z"/>
+      <path class="sweater-dk" d="M-250 60 Q-20 140 400 122 Q820 140 1050 60 L1050 76 Q820 158 400 138 Q-20 158 -250 76Z"/>
+      <path d="M150 40 Q250 90 330 100 M480 100 Q580 90 660 40" stroke="var(--sweater-dk)" stroke-width="4" fill="none"/>
+      <line class="sleeve" x1="140" y1="150" x2="60" y2="60" stroke-width="54"/>
+      <line class="sleeve" x1="660" y1="150" x2="740" y2="60" stroke-width="54"/>
+      <ellipse class="skin" cx="150" cy="158" rx="26" ry="22"/><ellipse class="skin" cx="650" cy="158" rx="26" ry="22"/>
+    </g>
+    <g id="reach">
+      <line class="sleeve" x1="520" y1="340" x2="452" y2="590" stroke-width="64"/>
+      <ellipse class="skin" cx="444" cy="598" rx="50" ry="38"/>
+      <rect class="skin" x="404" y="560" width="20" height="44" rx="10" transform="rotate(-25 414 582)"/>
+    </g>
+    <g id="offer">
+      <line class="sleeve" x1="520" y1="340" x2="476" y2="520" stroke-width="50"/>
+      <rect x="440" y="456" width="46" height="64" rx="5" fill="#f1ece4"/>
+      <rect x="440" y="456" width="46" height="20" rx="5" fill="#b8352a"/>
+      <rect x="448" y="446" width="8" height="14" rx="2" fill="#f5f2ea"/><rect x="460" y="442" width="8" height="18" rx="2" fill="#f5f2ea"/>
+      <ellipse class="skin" cx="466" cy="526" rx="34" ry="24"/>
+      <rect x="500" y="440" width="16" height="26" rx="3" fill="#2f6df6"/>
+      <path class="flame" d="M508 440 q-8 -12 0 -26 q8 14 0 26Z" fill="#ffb44a"/>
+    </g>
+    <g id="swear" class="pop">
+      <path d="M470 70 l18 -14 l12 10 l20 -18 l10 16 l24 -6 l-4 20 l20 10 l-18 12 l12 18 l-24 0 l-6 20 l-18 -14 l-20 14 l-4 -20 l-24 2 l10 -18 l-18 -12 l22 -8z" fill="#fff"/>
+      <text x="522" y="102" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="22" fill="#1b1d26">#@$%!</text>
+    </g>
+    <g id="backview">
+      <path class="sweater" d="M80 640 Q100 486 240 462 Q400 432 560 462 Q700 486 720 640Z"/>
+      <path d="M400 470 L400 640 M300 520 Q340 560 390 560 M410 560 Q460 560 500 520" stroke="var(--sweater-dk)" stroke-width="4" fill="none" opacity=".5"/>
+      <path class="sweater-dk" d="M320 470 Q400 500 480 470 L480 480 Q400 512 320 480Z"/>
+      <path class="skin-sh" d="M354 400 L446 400 L452 456 Q500 466 520 476 L280 476 Q300 466 348 456Z"/>
+      <ellipse class="skin" cx="306" cy="372" rx="14" ry="22"/><ellipse class="skin" cx="494" cy="372" rx="14" ry="22"/>
+      <ellipse class="hair" cx="400" cy="346" rx="96" ry="104"/>
+      <path class="hair-sh" d="M330 300 Q360 380 352 430 M380 270 Q400 360 392 440 M430 280 Q440 360 438 436 M466 304 Q470 370 456 424" stroke="var(--hair-sh)" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path class="hair-hi" d="M340 290 Q400 240 460 286 Q400 266 340 290Z"/>
+      <ellipse class="skin" cx="262" cy="500" rx="40" ry="30"/><ellipse class="skin" cx="538" cy="500" rx="40" ry="30"/>
+    </g>
+    <g id="catch">
+      <line class="sleeve" x1="330" y1="340" x2="282" y2="476" stroke-width="58"/>
+      <line class="sleeve" x1="470" y1="340" x2="518" y2="476" stroke-width="58"/>
+      <ellipse class="skin" cx="278" cy="496" rx="44" ry="32"/><ellipse class="skin" cx="522" cy="496" rx="44" ry="32"/>
+      <path d="M250 486 q28 -14 56 0 M494 486 q28 -14 56 0" stroke="#e2b08e" stroke-width="3" fill="none"/>
+    </g>
+    <g transform="translate(-170 0)"><g id="yourCone">
+      <path d="M640 470 L720 470 L680 620Z" fill="#d9a35f"/><path d="M650 490 l60 0 M658 516 l44 0 M666 542 l28 0" stroke="#b07a3a" stroke-width="3"/>
+      <g class="full"><circle cx="680" cy="440" r="48" fill="#cdeedd"/><circle cx="662" cy="400" r="30" fill="#f4c9d6"/></g>
+      <g class="bitten"><path d="M632 440 A48 48 0 1 0 728 440 L728 430 Q712 418 700 430 Q690 410 676 424 Q664 404 650 418 Q640 410 632 425Z" fill="#cdeedd"/></g>
+    </g></g>
+    <g id="giveCone">
+      <line class="sleeve" x1="560" y1="300" x2="520" y2="500" stroke-width="54"/>
+      <path d="M484 440 L540 440 L512 540Z" fill="#d9a35f"/>
+      <circle cx="512" cy="420" r="32" fill="#fff3c4"/><circle cx="500" cy="394" r="20" fill="#f4c9d6"/>
+      <ellipse class="skin" cx="514" cy="470" rx="28" ry="20"/>
+    </g>
+    <g id="hearts" fill="#ff5c7a">
+      <path d="M300 200 c-12 -16 -36 -4 -24 14 l24 22 l24 -22 c12 -18 -12 -30 -24 -14z"/>
+      <path d="M500 150 c-9 -12 -27 -3 -18 10 l18 17 l18 -17 c9 -13 -9 -22 -18 -10z"/>
+      <path d="M470 260 c-7 -9 -20 -2 -13 8 l13 12 l13 -12 c7 -10 -6 -17 -13 -8z"/>
+      <path d="M330 110 c-7 -9 -20 -2 -13 8 l13 12 l13 -12 c7 -10 -6 -17 -13 -8z"/>
+      <path d="M545 230 c-10 -13 -30 -3 -20 11 l20 18 l20 -18 c10 -14 -10 -24 -20 -11z"/>
+    </g>
+    <rect id="flash" x="-500" y="-80" width="1800" height="800" fill="#eef3ff"/>
+    <g id="haha" class="pop">
+      <text x="560" y="110" font-family="Young Serif, Georgia, serif" font-size="40" fill="#ffd27a" stroke="#14161d" stroke-width="1.5">HA HA!</text>
+    </g>
+  </g></g></g>
+</svg>
+  <div class="letter"></div>
+  <div class="grade" id="grade"></div>
+  <div class="desat"></div>
+  <div class="leak"></div>
+  <div class="ots" aria-hidden="true"></div>
+  <div class="focusring" id="focusring"></div>
+  <div class="coat"></div>
+  <div class="smokefx"></div>
+  <div class="lens" id="lens"></div>
+  <div class="fx"><div class="pop2 pop-swear">#@$%!</div><div class="pop2 pop-haha">HA HA!</div></div>
+  <div class="vignette"></div>
+  <div class="fadecut" id="fadecut"></div>
+  <div class="grain"></div>
+  <div class="bar top"></div><div class="bar bottom"></div>
+  <div class="titlecard" id="titlecard"><small id="tcSmall"></small><h2 id="tcBig"></h2></div>
+  <div class="hud-top">
+    <div class="hud-row"><span class="hud-right"><span class="rec"><i></i>Sahne <span id="sceneNo">00</span></span><span class="pulse" title="Kalp atışı"><b></b><span id="bpm">72</span></span></span><span class="hud-right"><span class="tc" id="tc">00:00:00:00</span><span id="loc">Kafe · Masa 4</span><a class="music" id="music" href="https://www.youtube.com/watch?v=fbFRSNPGtDk" target="_blank" rel="noopener">♪<span class="mlabel"> ŞARKI</span></a><button class="snd" id="snd" aria-pressed="true">SES AÇIK</button><button class="fs" id="fs" aria-label="Tam ekran">⛶</button></span></div>
+    <p class="caption" id="caption">Video: Altın saatte sıcacık bir kafe. Sarı saçlı, mavi gözlü genç bir adam seni masasına çağırıyor.</p>
+    <div class="reaction-bar" id="rbar"><span id="rfill"></span></div>
+  </div>
+</div>
+
+<div class="dock" id="dock">
+  <section class="bubble" id="bubble" aria-live="polite"></section>
+</div>
+
+<script>
+/* ===== Oyun verisi (düzenlenebilir) ===== */
+const ROUND_SECONDS = 15;
+const REACTION_MS = 3000;
+
+const FACES = {
+  neutral:{m:"neutral",b:"normal",e:"open",bl:0}, happy:{m:"smile",b:"raised",e:"squint",bl:1},
+  sad:{m:"frown",b:"sad",e:"side",bl:0}, surprised:{m:"o",b:"raised",e:"wide",bl:0},
+  panic:{m:"o",b:"sad",e:"wide",bl:0}, laugh:{m:"laugh",b:"raised",e:"closed",bl:1},
+  smirk:{m:"smirk",b:"normal",e:"squint",bl:0}, sheepish:{m:"smile",b:"sad",e:"side",bl:1},
+  embarrassed:{m:"frown",b:"sad",e:"down",bl:1}, soft:{m:"smile",b:"normal",e:"open",bl:0},
+  angry:{m:"frown",b:"angry",e:"open",bl:0}
+};
+
+const TABLE = {
+  ask:   {scene:"cafe", face:"neutral", tags:["cup-on"], text:"Video: POV. Sarı saçlı, mavi gözlü genç bir adam masada karşında oturuyor ve doğrudan gözlerine bakıyor."},
+  right: {scene:"cafe", face:"happy", tags:["cup-on","bob","hearts"], text:"Video: Sarı saçlı, mavi gözlü adam büyüleyici bir şekilde gülümsüyor."},
+  wrong: {scene:"cafe", face:"sad", tags:["cup-on","turnaway"], text:"Video: Adam hayal kırıklığına uğramış görünüyor ve bakışlarını kaçırıyor."},
+};
+
+// `correct`: doğru şıkkın sırası (0 = ilk şık). Küfür sorusunun doğru cevabı yok.
+const QUESTIONS = [
+  {part:1, q:"Sence genel giyim tarzım nasıl?", opts:["Bol","Şık","Sokak stili"], correct:0},
+  {part:1, q:"Haftada kaç gün spora gidiyorum?", opts:["3","4","5"], correct:2},
+  {part:1, q:"Bilgisayar/konsol oyunları oynar mıyım?", opts:["Evet","Hayır"], correct:0},
+  {part:1, q:"Fotojenik miyim?", opts:["Evet","Hayır"], correct:0},
+  {part:1, q:"Genelde hangi moddayım?", opts:["Evde kalmak","Dışarı çıkmak"], correct:1},
+  {part:1, q:"En iyi olduğum spor hangisi?", opts:["Futbol","Yüzme","Basketbol"], correct:2},
+  {part:2, tag:"Sokak köpeği", q:"Aniden bir sokak köpeği çıkıyor. Benim hamlem ne olur?", correct:1,
+    ask:{scene:"street", face:"surprised", tags:["dog-side"], text:"Video: Ara sokaktan dağınık tüylü bir köpek çıkıyor ve tam önünüzde duruyor."},
+    opts:[
+      ["Diz çöküp sever", {face:"happy", tags:["kneel","dog-near","pet"], text:"Video: Sarı saçlı adam diz çöküyor ve köpeği neşeyle seviyor."}],
+      ["Gerilip kaçar", {face:"panic", tags:["runaway","chase"], ms:4200, text:"Video: Geniş plan. Sarı saçlı adam korkuyla zıplıyor ve kaçmaya başlıyor; köpek de havlayarak peşinden koşuyor."}],
+      ["Köpeği sana sevdirir", {face:"happy", tags:["dog-close","point"], text:"Video: Adam gülümseyerek köpeği sana doğru yönlendiriyor."}]]},
+  {part:2, tag:"Küfür", q:"Birine sinirlenip küfür etsem sen ne yapardın?",
+    ask:{scene:"street", face:"angry", tags:["passer","stumble","angry","swear"], text:"Video: Biri yürürken sarı saçlı adama sertçe çarpıyor ve özür dilemeden geçip gidiyor. Adam sinirleniyor ve ağzından bir küfür kaçıyor."},
+    opts:[
+      ["Görmezden gelirim", {face:"embarrassed", tags:["lookdown"], text:"Video: Adam biraz utanmış görünüyor ve başını öne eğiyor."}],
+      ["'Sakin ol' derim", {face:"sheepish", tags:["handhead"], text:"Video: Sarı saçlı, mavi gözlü adam mahcup bir şekilde gülümsüyor ve ensesini kaşıyor."}],
+      ["Ben de küfrederim", {face:"laugh", tags:["laughing","haha"], text:"Video: Adam önce şaşırıyor, sonra kahkahayı basıyor."}]]},
+  {part:2, tag:"Kayma", q:"Yürürken ayağın kayıyor ve düşmek üzeresin. Ne yaparım?", correct:0,
+    ask:{scene:"street", face:"surprised", tags:["slip"], text:"Video: POV. Islak kaldırımda ayağın kayıyor, dünya yana yatıyor. Sarı saçlı adam irkilerek sana dönüyor."},
+    opts:[
+      ["Seni tutarım", {face:"soft", tags:["caught","close","hearts"], text:"Video: Adam refleksle kollarını uzatıp seni yakalıyor ve gülümseyerek \"İyi misin?\" diye soruyor."}],
+      ["Gülerim", {face:"laugh", tags:["fell","laughing","haha"], text:"Video: Sen yere düşerken adam kahkahayı basıyor."}],
+      ["Fotoğrafını çekerim", {face:"smirk", tags:["fell","photo"], text:"Video: Adam telefonunu çıkarıyor ve düştüğün anın fotoğrafını çekiyor. Flaş patlıyor."}]]},
+  {part:2, tag:"Dondurma", q:"Dondurmacının önünden geçiyoruz. Ne yaparım?", correct:2,
+    ask:{scene:"street", face:"happy", tags:["cart","yourcone"], text:"Video: Renkli bir dondurma arabasının önündesiniz. Elinde dondurman var; adam ona göz ucuyla bakıyor."},
+    opts:[
+      ["Sana da alırım", {face:"happy", tags:["cart","hiscone","givecone"], text:"Video: Adam iki dondurma alıyor ve birini gülümseyerek sana uzatıyor."}],
+      ["Sadece kendime alırım", {face:"smirk", tags:["cart","hiscone","lick"], text:"Video: Adam kendine bir dondurma alıyor ve keyifle yemeye başlıyor."}],
+      ["Senin dondurmandan bir ısırık alırım", {face:"happy", tags:["cart","yourcone","bite"], text:"Video: Adam muzip bir gülümsemeyle eğiliyor ve senin dondurmandan kocaman bir ısırık alıyor."}]]},
+  {part:2, tag:"Yağmur", q:"Aniden sağanak yağmur başlıyor. Ne yaparım?", correct:0,
+    ask:{scene:"street", face:"surprised", tags:["rain","flash"], text:"Video: Gök gürlüyor, şimşek çakıyor. Saniyeler içinde sokağa sağanak yağmur bastırıyor."},
+    opts:[
+      ["Ceketimle başını örterim", {face:"happy", tags:["rain","jacket","close"], text:"Video: Adam centilmence ceketini başının üstüne tutuyor."}],
+      ["Elini tutup bir saçağın altına koşarım", {face:"happy", tags:["rain","camrun","reach","roof"], text:"Video: Adam elini tutuyor ve heyecanla bir saçağın altına koşuyor."}],
+      ["Yağmuru umursamadan yürümeye devam ederim", {face:"smirk", tags:["rain","walk","wet","drips"], text:"Video: Sarı saçlı adam sırılsıklam olmasına rağmen havalı bir şekilde yürümeye devam ediyor."}]]},
+  {part:2, tag:"Burkulma", q:"Ayağın burkulsa seni sırtımda taşır mıyım?", correct:0,
+    ask:{scene:"street", face:"sad", tags:["sprain","kneel"], text:"Video: POV. Kaldırımda ayağın burkuluyor ve yere çöküyorsun. Sarı saçlı adam hemen yanına diz çöküp endişeyle bakıyor."},
+    opts:[
+      ["Evet, sırtımda taşırım", {face:"happy", tags:["piggyback"], ms:3600, text:"Video: Adam sırtını dönüp eğiliyor: \"Atla!\" Seni sırtına alıp sokak boyunca neşeyle taşıyor."}],
+      ["Koluma girip yavaşça yürütürüm", {face:"soft", tags:["reach","walk"], text:"Video: Adam kolunu uzatıyor, sana destek olup adım adım birlikte yürüyorsunuz."}],
+      ["Taksi çağırırım", {face:"neutral", tags:["idle-phone","calltaxi"], text:"Video: Adam telefonunu çıkarıp taksi çağırıyor ve yol kenarında seninle bekliyor."}]]},
+];
+
+// Arka plan müziği: bir ses dosyası eklenirse burada çalar (ör. "sarki.mp3"). Boşsa ♪ düğmesi şarkıyı YouTube'da açar.
+const MUSIC_SRC = "sarki.mp3";
+// Sonuçları görmek istersen: formspree.io'da ücretsiz bir form oluştur, sana verdiği
+// adresi (https://formspree.io/f/xxxxxxx gibi) aşağıdaki tırnakların arasına yapıştır.
+const RESULTS_ENDPOINT = "";
+/* ===== Sahne kurulumu (binalar, yağmur, tente) ===== */
+const NS = "http://www.w3.org/2000/svg";
+const mk = (tag, attrs, parent) => { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); parent && parent.appendChild(el); return el; };
+let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+(function build(){
+  const b = document.getElementById("buildings");
+  let x = -480;
+  while (x < 1280) {
+    const w = 90 + rnd()*110, h = 200 + rnd()*230, top = 505 - h;
+    mk("rect",{x,y:top,width:w,height:h,fill:rnd()>.5?"#1b1f33":"#22273d"},b);
+    for (let wy = top+20; wy < 480; wy += 34) for (let wx = x+14; wx < x+w-20; wx += 28)
+      if (rnd() > .45) mk("rect",{x:wx,y:wy,width:12,height:18,rx:2,fill:"#ffd27a",opacity:(.35+rnd()*.5).toFixed(2)},b);
+    x += w + 6;
+  }
+  const r = document.getElementById("rain");
+  for (let i = 0; i < 130; i++) {
+    const lx = -420 + rnd()*1660, ly = rnd()*600;
+    const l = mk("line",{x1:lx,y1:ly-600,x2:lx-8,y2:ly-574},r);
+    l.style.animationDelay = (-rnd()).toFixed(2)+"s";
+    l.style.animationDuration = (.45+rnd()*.3).toFixed(2)+"s";
+  }
+  const stz = document.getElementById("stars");
+  for (let i = 0; i < 60; i++) { const c = mk("circle",{cx:(-480+rnd()*1760).toFixed(0),cy:(-70+rnd()*300).toFixed(0),r:(.6+rnd()*1.6).toFixed(1)},stz); c.style.animationDelay=(-rnd()*3).toFixed(1)+"s"; }
+  const lens = document.getElementById("lens");
+  for (let i = 0; i < 18; i++) { const d = document.createElement("i"); d.style.cssText = `left:${(rnd()*96).toFixed(1)}%;top:${(rnd()*70).toFixed(1)}%;--s:${(8+rnd()*22).toFixed(0)}px;--d:${(2.5+rnd()*4).toFixed(1)}s;--w:${(-rnd()*5).toFixed(1)}s`; lens.appendChild(d); }
+  const mo = document.getElementById("motes");
+  for (let i = 0; i < 26; i++) { const c = mk("circle",{cx:(-200+rnd()*1200).toFixed(0),cy:(rnd()*460).toFixed(0),r:(1+rnd()*2.4).toFixed(1)},mo); c.style.animationDelay=(-rnd()*9).toFixed(1)+"s"; c.style.animationDuration=(7+rnd()*6).toFixed(1)+"s"; }
+  const s = document.getElementById("scallops");
+  for (let i = -250; i < 1050; i += 30) mk("path",{d:`M${i} 56 q15 22 30 0 z`,fill:(Math.round(i/30)%2)?"#f3e7d3":"#c0392b"},s);
+})();
+
+/* ===== Motor ===== */
+const $ = id => document.getElementById(id);
+const stage = $("stage"), bubble = $("bubble");
+let idx = 0, answers = [], timerRAF = null, locked = true;
+
+let talkTimer = null;
+function talk(rest){
+  clearInterval(talkTimer);
+  let n = 0;
+  const b0 = stage.dataset.b; stage.dataset.b = "raised";
+  setTimeout(() => { stage.dataset.b = b0; }, 700);
+  talkTimer = setInterval(() => {
+    stage.dataset.m = (n++ % 2) ? "o" : "neutral";
+    if (n > 9) { clearInterval(talkTimer); stage.dataset.m = rest; }
+  }, 130);
+}
+function cut(fn){
+  const fc = $("fadecut");
+  fc.classList.add("on");
+  setTimeout(() => { fn(); fc.classList.remove("on"); }, 280);
+}
+function setState(st){
+  clearInterval(talkTimer);
+  const f = FACES[st.face] || FACES.neutral;
+  stage.dataset.scene = st.scene;
+  stage.dataset.m = f.m; stage.dataset.b = f.b; stage.dataset.e = f.e; stage.dataset.bl = f.bl;
+  stage.setAttribute("class", "");
+  void stage.getBoundingClientRect();
+  stage.setAttribute("class", (st.tags || []).join(" "));
+  direct(st);
+  if (st.talk) talk(f.m);
+  const c = $("caption");
+  c.textContent = st.text;
+  c.classList.remove("swap"); void c.offsetWidth; c.classList.add("swap");
+}
+
+/* ===== Sinema katmanı: kamera, renk, ses ===== */
+const screenEl = $("screenEl"), zoomEl = $("zoom"), handEl = $("hand");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Plan tipleri: cx/cy = kameranın baktığı nokta, z = yakınlık, r = eğiklik (derece), bgb = arka plan bulanıklığı
+const SHOTS = {
+  establish:{cx:400,cy:300,z:.94,r:0,bgb:.6,ms:2600},
+  wide:{cx:400,cy:310,z:1,r:0,bgb:.8,ms:1400},
+  medium:{cx:400,cy:300,z:1.12,r:0,bgb:1.6,ms:1400},
+  ask:{cx:400,cy:252,z:1.1,r:0,bgb:2.2,ms:1600},
+  ots:{cx:352,cy:250,z:1.16,r:0,bgb:2.8,ms:1600},
+  mcu:{cx:400,cy:250,z:1.4,r:0,bgb:3,ms:1800},
+  cu:{cx:400,cy:200,z:1.62,r:0,bgb:4.2,ms:2600},
+  snap:{cx:400,cy:196,z:1.8,r:0,bgb:4.5,ms:260},
+  dutch:{cx:410,cy:240,z:1.45,r:-5,bgb:3,ms:2200},
+  low:{cx:400,cy:292,z:1.06,r:2,bgb:1.4,ms:1600},
+  crane:{cx:400,cy:120,z:.96,r:0,bgb:.6,ms:3200},
+};
+let shake = 0.6;
+function camera(name){
+  const S = SHOTS[name] || SHOTS.medium;
+  zoomEl.style.transition = `transform ${reduce ? 0 : S.ms}ms cubic-bezier(.25,.7,.2,1)`;
+  zoomEl.style.transform = `scale(${S.z}) rotate(${S.r}deg) translate(${400 - S.cx}px, ${300 - S.cy}px)`;
+  stage.style.setProperty("--bgb", S.bgb + "px");
+  screenEl.classList.toggle("otson", name === "ots");
+  screenEl.classList.toggle("wide", name === "establish" || name === "crane");
+  if (name === "cu" || name === "snap" || name === "mcu") focusPull();
+  setTimeout(applyLift, (reduce ? 0 : S.ms) + 30);
+}
+function focusPull(){
+  const r = $("head").getBoundingClientRect(), fr = $("focusring");
+  fr.style.left = (r.left + r.width/2) + "px"; fr.style.top = (r.top + r.height*.45) + "px";
+  fr.classList.remove("on"); void fr.offsetWidth; fr.classList.add("on");
+}
+// El kamerası titremesi
+(function handheld(){
+  if (reduce) return;
+  const loop = t => {
+    const x = Math.sin(t*.00071)*2.2 + Math.sin(t*.0017)*1.1;
+    const y = Math.cos(t*.00053)*1.8 + Math.sin(t*.0023)*.8;
+    const r = Math.sin(t*.00041)*.22;
+    handEl.style.transform = `translate(${x*shake}px,${y*shake}px) rotate(${r*shake}deg)`;
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+})();
+// Renk düzenleme
+const GRADES = {
+  cafe:["#ff9a3c",.35], street:["#7a5cff",.22], rain:["#2f5bd6",.45], happy:["#ffb070",.5], sad:["#3a5bb0",.35], night:["#1d2a6b",.3]
+};
+function grade(name, sad){
+  const g = GRADES[name] || GRADES.cafe;
+  screenEl.style.setProperty("--grade", g[0]); screenEl.style.setProperty("--gradeo", g[1]);
+  screenEl.classList.toggle("sadgrade", !!sad);
+}
+function leak(){ screenEl.classList.remove("leakon"); void screenEl.offsetWidth; screenEl.classList.add("leakon"); }
+function titleCard(small, big, ms, then){
+  const tc = $("titlecard");
+  $("tcSmall").textContent = small; $("tcBig").textContent = big;
+  tc.classList.add("on");
+  setTimeout(() => { then && then(); tc.classList.remove("on"); }, reduce ? 300 : ms);
+}
+// Zaman kodu
+const tcStart = performance.now();
+(function timecode(){
+  const tick = () => {
+    const f = Math.floor((performance.now() - tcStart) / (1000/24));
+    const ff = f % 24, sec = Math.floor(f/24), ss = sec % 60, mm = Math.floor(sec/60) % 60;
+    $("tc").textContent = `00:${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}:${String(ff).padStart(2,"0")}`;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+})();
+// Ses (WebAudio ile üretilir, dosya yok)
+const Snd = {
+  ctx:null, on:true, amb:null, ambType:null,
+  init(){ try { this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)(); this.ctx.resume(); } catch(e){} },
+  tone(freq, dur, type="sine", vol=.15, when=0, slide=0){
+    if (!this.on || !this.ctx) return;
+    const c = this.ctx, t = c.currentTime + when, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(freq*slide, t+dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t+.015); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t+dur+.05);
+  },
+  noise(dur, vol, filt, freq){
+    if (!this.on || !this.ctx) return null;
+    const c = this.ctx, n = c.sampleRate*dur, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random()*2-1;
+    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = b; f.type = filt; f.frequency.value = freq; g.gain.value = vol;
+    s.connect(f).connect(g).connect(c.destination); return {s, g};
+  },
+  right(){ [660, 880, 1320].forEach((f,i) => this.tone(f, .5, "sine", .12, i*.09)); },
+  wrong(){ this.tone(330, .5, "triangle", .14, 0, .6); this.tone(247, .6, "triangle", .1, .18, .7); },
+  tick(){ this.tone(1200, .05, "square", .04); },
+  click(){ this.tone(520, .06, "triangle", .08); },
+  whoosh(){ const n = this.noise(.6, .18, "bandpass", 900); if (n){ n.s.start(); n.g.gain.exponentialRampToValueAtTime(.001, this.ctx.currentTime+.6); } },
+  thunder(){ const n = this.noise(2.2, .5, "lowpass", 180); if (n){ n.s.start(this.ctx.currentTime+.15); n.g.gain.exponentialRampToValueAtTime(.001, this.ctx.currentTime+2.3); } },
+  bark(){ [0,.32,.62].forEach(w => this.tone(380, .12, "sawtooth", .07, w, .55)); },
+  shutter(){ const n = this.noise(.08, .3, "highpass", 2000); if (n) n.s.start(this.ctx.currentTime+1.3); },
+  ambience(type){
+    if (this.ambType === type) return;
+    this.ambType = type;
+    if (this.amb){ try { this.amb.g.gain.linearRampToValueAtTime(0, this.ctx.currentTime+.8); this.amb.s.stop(this.ctx.currentTime+.9); } catch(e){} this.amb = null; }
+    if (!this.on || !this.ctx || !type) return;
+    const conf = {cafe:[.035,"lowpass",500], street:[.03,"lowpass",300], rain:[.11,"highpass",1400], rainsoft:[.09,"lowpass",520]}[type];
+    const n = this.noise(4, 0, conf[1], conf[2]); if (!n) return;
+    n.s.loop = true; n.s.start(); n.g.gain.linearRampToValueAtTime(conf[0], this.ctx.currentTime+1); this.amb = n;
+  }
+};
+$("snd").onclick = () => {
+  Snd.on = !Snd.on; Snd.init();
+  $("snd").textContent = Snd.on ? "SES AÇIK" : "SES KAPALI";
+  $("snd").setAttribute("aria-pressed", Snd.on);
+  if (music) Snd.on ? music.play().catch(()=>{}) : music.pause();
+  const t = Snd.ambType; Snd.ambType = null; Snd.ambience(Snd.on ? t : null); if (!Snd.on) Snd.ambType = t;
+};
+
+// Kalp atışı
+let bpm = 72; const bpmLog = [72];
+function setBpm(v){
+  bpm = Math.max(58, Math.min(150, Math.round(v)));
+  $("bpm").textContent = bpm;
+  document.querySelector(".pulse b").style.setProperty("--beat", (60/bpm).toFixed(2) + "s");
+}
+// Bekleme animasyonları (soru açıkken)
+let idleTimer = null, idleOff = null;
+const IDLES = ["idle-sip","idle-phone","idle-hair","idle-look"];
+const IDLE_BUSY = ["cig","lighter","rain","dog-side","passer","slip","cart"];
+function startIdle(scene){
+  stopIdle();
+  idleTimer = setInterval(() => {
+    const cls = [...stage.classList];
+    if (cls.some(c => IDLE_BUSY.includes(c))) { if (Math.random() < .5) idlePlay("idle-look", 1800); return; }
+    const pool = scene === "cafe" ? ["idle-sip","idle-phone","idle-hair","idle-look","idle-sip"] : ["idle-phone","idle-hair","idle-look"];
+    idlePlay(pool[Math.floor(Math.random()*pool.length)], 2500);
+  }, 3600);
+}
+function idlePlay(c, ms){
+  IDLES.forEach(x => stage.classList.remove(x));
+  stage.classList.add(c); clearTimeout(idleOff);
+  idleOff = setTimeout(() => stage.classList.remove(c), ms);
+}
+function stopIdle(){ clearInterval(idleTimer); clearTimeout(idleOff); [...IDLES, "idle-tap"].forEach(x => stage.classList.remove(x)); }
+// Göz teması: gözler imleci / parmağı takip eder
+addEventListener("pointermove", e => {
+  const r = $("head").getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width/2), dy = e.clientY - (r.top + r.height*.45);
+  const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d/300);
+  stage.style.setProperty("--px", (dx/d*4.5*k).toFixed(2) + "px");
+  stage.style.setProperty("--py", (dy/d*2.8*k).toFixed(2) + "px");
+});
+// Müzik
+let music = MUSIC_SRC ? Object.assign(new Audio(), {loop:true, volume:.35, preload:"auto"}) : null;
+if (music) {
+  music.addEventListener("error", () => { music = null; });
+  music.src = MUSIC_SRC;
+  $("music").addEventListener("click", e => {
+    if (!music) return;               // dosya yoksa link YouTube'u açar
+    e.preventDefault();
+    music.paused ? music.play().catch(()=>{}) : music.pause();
+  });
+}
+function musicStart(){ if (music && Snd.on) music.play().catch(()=>{}); }
+
+// Sekme arka plana geçince sesi durdur
+document.addEventListener("visibilitychange", () => {
+  if (!Snd.ctx) return;
+  if (document.hidden) { Snd.ctx.suspend(); if (music && !music.paused) { music.pause(); music._resume = true; } }
+  else { Snd.ctx.resume(); if (music && music._resume) { music._resume = false; music.play().catch(()=>{}); } }
+});
+// Titreşim (Android)
+const buzz = p => { try { if (Snd.on && navigator.vibrate) navigator.vibrate(p); } catch(e){} };
+// Tam ekran (destekleyen telefonlarda)
+(function(){
+  const b = $("fs");
+  if (!document.fullscreenEnabled) { b.hidden = true; return; }
+  b.onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+    else document.documentElement.requestFullscreen({navigationUI:"hide"}).then(() => { try { screen.orientation.lock && screen.orientation.lock("portrait").catch(()=>{}); } catch(e){} }).catch(()=>{});
+  };
+})();
+
+// Duruma göre kamera, renk ve ses seçimi
+function direct(st){
+  const t = st.tags || [], has = x => t.includes(x);
+  shake = has("runaway") || has("camrun") ? 2.2 : has("piggyback") ? 1.8 : has("rain") || has("walk") ? 1.2 : .6;
+  let shot = st.shot;
+  if (!shot){
+    if (has("runaway")) shot = null;
+    else if (has("dog-side") || has("dog-near") || has("dog-close")) shot = has("dog-close") || has("kneel") ? "medium" : "wide";
+    else if (has("cart") && !has("bite") && !has("givecone") && !has("hiscone")) shot = "medium";
+    else if (has("slip") || has("fell") || has("caught") || has("piggyback")) shot = "wide";
+    else if (has("sprain")) shot = "medium";
+    else if (has("bite") || has("givecone") || has("jacket") || has("offer")) shot = "medium";
+    else if (st.face === "surprised" || st.face === "panic" || st.face === "angry") shot = "snap";
+    else if (["happy","laugh","soft"].includes(st.face)) shot = "cu";
+    else if (["sad","embarrassed"].includes(st.face)) shot = "dutch";
+    else if (st.face === "sheepish") shot = "mcu";
+    else if (has("walk") || has("stepaside") || has("kneel")) shot = "low";
+    else shot = "medium";
+  }
+  if (shot) camera(shot);
+  screenEl.classList.toggle("fx-swear", has("swear"));
+  screenEl.classList.toggle("fx-late", has("passer"));
+  screenEl.classList.toggle("fx-haha", has("haha"));
+  screenEl.classList.toggle("lensrain", has("rain") && !has("jacket") && !has("roof"));
+  screenEl.classList.toggle("undercoat", has("jacket"));
+  screenEl.classList.remove("smokeon"); void screenEl.offsetWidth;
+  if (has("smoke") && !has("stepaside")) screenEl.classList.add("smokeon");
+  const sad = ["sad","embarrassed"].includes(st.face);
+  grade(has("rain") ? "rain" : sad ? "sad" : (st.face === "happy" || has("hearts")) && st.scene === "cafe" ? "happy" : st.scene, sad);
+  if (has("hearts") || (st.face === "happy" && !st.isAsk)) leak();
+  Snd.ambience(has("rain") ? (has("jacket") || has("roof") ? "rainsoft" : "rain") : st.scene);
+  if (has("flash")) Snd.thunder();
+  if (has("chase") || has("bark") || has("dog-side")) Snd.bark();
+  if (has("photo")) Snd.shutter();
+  if (shot === "snap" || has("runaway") || has("slip")) Snd.whoosh();
+}
+
+/* Kamera: soru kartı açıkken yüzü kartın üstünde tutar */
+let lift = 0, shiftX = 0;
+const landMQ = matchMedia("(orientation: landscape) and (max-height: 520px)");
+function applyLift(){
+  if (bubble.classList.contains("hide")) { lift = 0; shiftX = 0; stage.style.transform = ""; return; }
+  if (landMQ.matches){
+    lift = 0;
+    const head = $("head").getBoundingClientRect(), br = bubble.getBoundingClientRect();
+    const headCx = head.left + head.width/2 - shiftX;
+    shiftX = Math.min(0, br.left/2 + 8 - headCx);
+    stage.style.transform = shiftX ? `translateX(${shiftX}px)` : "";
+    return;
+  }
+  shiftX = 0;
+  const face = $("mouthAnchor").getBoundingClientRect();
+  const head = $("head").getBoundingClientRect();
+  const cap = $("caption").getBoundingClientRect();
+  const pad = parseFloat(getComputedStyle($("dock")).paddingBottom);
+  const bubbleTop = innerHeight - pad - bubble.offsetHeight;
+  const mouthBottom = face.bottom + lift, headTop = head.top + lift;
+  const need = mouthBottom + 22 - bubbleTop;
+  const maxLift = Math.max(0, headTop - cap.bottom - 10);
+  lift = Math.max(0, Math.min(need, maxLift));
+  stage.style.transform = lift ? `translateY(${-lift}px)` : "";
+}
+addEventListener("resize", () => requestAnimationFrame(applyLift));
+addEventListener("orientationchange", () => setTimeout(applyLift, 350));
+function showBubble(){ bubble.classList.remove("hide"); requestAnimationFrame(applyLift); }
+function hideBubble(){ bubble.classList.add("hide"); applyLift(); }
+
+const scored = QUESTIONS.filter(q => q.correct !== undefined).length;
+
+let introDone = false;
+function showIntro(){
+  if (!introDone){
+    introDone = true;
+    bubble.classList.add("hide");
+    setState({scene:"cafe", face:"neutral", tags:["cup-on"], shot:"establish", text:"Video: Altın saatte sıcacık bir kafe."});
+    titleCard("Bir Numan filmi", "İlk Buluşma", 2600, () => setTimeout(showIntro, 50));
+    return;
+  }
+  setState({scene:"cafe", face:"happy", tags:["cup-on","wave"], shot:"ask", text:"Video: Altın saatte sıcacık bir kafe. Sarı saçlı, mavi gözlü genç bir adam seni masasına çağırıyor."});
+  $("sceneNo").textContent = "00"; $("loc").textContent = "Kafe · Masa 4";
+  bubble.innerHTML = `
+    <div class="meta"><span class="part">İlk buluşma · 12 soru</span><span class="count">~3 dk</span></div>
+    <h1 class="q">Kahve soğumadan beni ne kadar iyi tanıyabilirsin?</h1>
+    <p class="lede">Önce masada kim olduğumla ilgili altı soru, sonra dışarıda altı an. Her soru için ${ROUND_SECONDS} saniyen var.</p>
+    <button class="btn" id="start">Masaya otur</button>`;
+  showBubble();
+  $("start").onclick = () => { Snd.init(); Snd.click(); musicStart(); idx = 0; answers = []; showQuestion(); };
+}
+
+function showQuestion(){
+  const Q = QUESTIONS[idx];
+  if (Q.part === 2 && QUESTIONS[idx-1] && QUESTIONS[idx-1].part === 1 && !Q._carded){
+    Q._carded = true; bubble.classList.add("hide");
+    setState({scene:"cafe", face:"happy", tags:["cup-on","standup"], shot:"medium", text:"Video: Hesabı ödeyip kalkıyorsunuz. Adam ceketini alıp kapıyı senin için açıyor."});
+    setTimeout(() => { Snd.whoosh(); titleCard("2. Bölüm", "Dışarıda", 2000, showQuestion); }, 1900);
+    return;
+  }
+  const k2 = QUESTIONS.slice(0, idx).filter(q => q.part === 2).length, n2 = QUESTIONS.filter(q => q.part === 2).length;
+  stage.style.setProperty("--night", Q.part === 2 ? (k2 / n2 * .85).toFixed(2) : 0);
+  Q._carded = false;
+  locked = false;
+  $("sceneNo").textContent = String(idx+1).padStart(2,"0");
+  $("loc").textContent = Q.part === 1 ? "Kafe · Masa 4" : "Dışarıda · " + Q.tag;
+  const askSt = Q.part === 1 ? {...TABLE.ask, talk:true, isAsk:true, shot: idx % 2 ? "ots" : "ask"} : {...Q.ask, isAsk:true};
+  const prevScene = stage.dataset.scene;
+  if (askSt.scene !== prevScene || Q.part === 2) cut(() => setState(askSt)); else setState(askSt);
+  const labels = Q.part === 1 ? Q.opts : Q.opts.map(o => o[0]);
+  const short = Q.part === 1 && labels.every(l => l.length < 14);
+  bubble.innerHTML = `
+    <div class="meta"><span class="part">${Q.part === 1 ? "1. Bölüm · Masada" : "2. Bölüm · Dışarıda"}</span>
+      <span class="count">${String(idx+1).padStart(2,"0")} / ${QUESTIONS.length}</span></div>
+    <h2 class="q">${Q.q}</h2>
+    <div class="timer"><div class="track"><div class="fill" id="fill"></div></div><span class="secs" id="secs">${ROUND_SECONDS} sn</span></div>
+    <div class="opts ${short ? "cols" : ""}">
+      ${labels.map((l,i)=>`<button class="opt" data-i="${i}"><span class="key">${"ABC"[i]}</span>${l}</button>`).join("")}
+    </div>`;
+  bubble.querySelectorAll(".opt").forEach(b => b.onclick = () => choose(+b.dataset.i));
+  showBubble();
+  startTimer();
+  setTimeout(() => { if (!locked) startIdle(askSt.scene); }, 1500);
+}
+
+function startTimer(){
+  cancelAnimationFrame(timerRAF);
+  const t0 = performance.now(), dur = ROUND_SECONDS*1000, fill = $("fill"), secs = $("secs");
+  const tick = now => {
+    const left = Math.max(0, dur - (now - t0));
+    fill.style.transform = `scaleX(${left/dur})`;
+    fill.classList.toggle("low", left < 5000);
+    const sNow = Math.ceil(left/1000);
+    if (sNow !== secs._last){ if (sNow <= 5 && sNow > 0) { Snd.tick(); if (stage.dataset.scene === "cafe") stage.classList.add("idle-tap"); } secs._last = sNow; }
+    secs.textContent = sNow + " sn";
+    if (left <= 0) return choose(-1);
+    timerRAF = requestAnimationFrame(tick);
+  };
+  timerRAF = requestAnimationFrame(tick);
+}
+
+function choose(i){
+  if (locked) return; locked = true;
+  stopIdle();
+  cancelAnimationFrame(timerRAF);
+  const Q = QUESTIONS[idx];
+  const hasKey = Q.correct !== undefined;
+  const ok = hasKey && i === Q.correct;
+  let st;
+  if (Q.part === 1) {
+    st = ok ? TABLE.right : (i === -1 ? {...TABLE.wrong, text:"Video: Sessizlik. Adam bir süre cevap bekliyor, sonra hayal kırıklığıyla başını çeviriyor."} : TABLE.wrong);
+  } else if (i === -1) {
+    st = {...Q.ask, face:"surprised", tags:Q.ask.tags.filter(t => !["passer","stumble","swear","flash","angry"].includes(t)), text:"Video: Donup kalıyorsun. Sarı saçlı adam kaşını kaldırıp bir şey söylemeni bekliyor."};
+  } else {
+    const o = Q.opts[i][1];
+    st = {scene:"street", ...o, tags: ok ? [...o.tags, "hearts"] : o.tags};
+  }
+  answers.push({q:Q.q, a: i === -1 ? "Cevap yok" : (Q.part === 1 ? Q.opts[i] : Q.opts[i][0]), ok, hasKey});
+  Snd.click();
+  if (hasKey) setTimeout(() => ok ? Snd.right() : Snd.wrong(), 250);
+  if (hasKey) buzz(ok ? [25, 60, 25] : 140);
+  setBpm(bpm + (hasKey ? (ok ? 11 : -7) : 4) + (Math.random()*4 - 2)); bpmLog.push(bpm);
+  hideBubble();
+  setState(st);
+  playReaction(st.ms || REACTION_MS, () => { idx++; idx < QUESTIONS.length ? showQuestion() : showEnd(); });
+}
+
+function playReaction(ms, done){
+  const bar = $("rbar"), f = $("rfill"), t0 = performance.now();
+  bar.classList.add("on");
+  const step = now => {
+    const p = Math.min(1, (now - t0)/ms);
+    f.style.transform = `scaleX(${1-p})`;
+    if (p < 1) requestAnimationFrame(step); else { bar.classList.remove("on"); done(); }
+  };
+  requestAnimationFrame(step);
+}
+
+function bpmSvg(){
+  const w = 300, h = 56, lo = Math.min(...bpmLog) - 4, hi = Math.max(...bpmLog) + 4;
+  const pts = bpmLog.map((v,i) => [(i/Math.max(1,bpmLog.length-1))*(w-8)+4, h-4-((v-lo)/(hi-lo))*(h-8)]);
+  const d = pts.map((p,i) => (i?"L":"M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const last = pts[pts.length-1];
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="Oyun boyunca kalp atışı"><path d="${d} L${last[0]} ${h} L4 ${h}Z" fill="#ff5c7a" opacity=".12"/><path d="${d}" fill="none" stroke="#ff5c7a" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function sendResults(right){
+  if (!RESULTS_ENDPOINT) return;
+  const lines = answers.map((a,n) => `${n+1}. ${a.q} -> ${a.a}${a.hasKey ? (a.ok ? " (dogru)" : " (yanlis)") : ""}`).join("\n");
+  fetch(RESULTS_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({
+      _subject: `Ilk Bulusma sonucu: ${right}/${scored}`,
+      skor: `${right}/${scored}`,
+      tarih: new Date().toLocaleString("tr-TR"),
+      cevaplar: lines
+    })
+  }).catch(() => {});
+}
+function showEnd(skip){
+  if (!skip){
+    bubble.classList.add("hide");
+    stage.style.setProperty("--night", 1);
+    setState({scene:"street", face:"soft", tags:[], shot:"crane", text:"Video: Kamera yavaşça yükselip akşam gökyüzüne doğru açılıyor."});
+    setTimeout(() => titleCard("Simülasyon", "Son", 1900, () => showEnd(true)), 1600);
+    return;
+  }
+  const right = answers.filter(a => a.ok).length;
+  sendResults(right);
+  const good = right >= Math.ceil(scored * .6);
+  $("sceneNo").textContent = "SON"; $("loc").textContent = "Kapanış";
+  setState(good
+    ? {scene:"street", face:"happy", tags:["wave","hearts"], shot:"ask", text:"Video: Sarı saçlı, mavi gözlü adam başını sallayarak gülüyor: \"Beni gerçekten tanıyorsun.\""}
+    : {scene:"street", face:"smirk", tags:[], shot:"ask", text:"Video: Sarı saçlı, mavi gözlü adam sırıtıp sana kaşını kaldırıyor."});
+  bubble.innerHTML = `
+    <div class="meta"><span class="part">Son</span><span class="count">${answers.length} / ${QUESTIONS.length}</span></div>
+    <h2 class="q">Simülasyon Tamamlandı!</h2>
+    <div class="score"><strong>${right}/${scored}</strong><span>doğru tahmin</span></div>
+    <ol class="summary">
+      ${answers.map((a,n)=>`<li><span class="n">${String(n+1).padStart(2,"0")}</span>
+        <span class="qq"><b>${a.a}</b>${a.q}</span>
+        ${a.hasKey ? `<span class="mark ${a.ok?"ok":"no"}">${a.ok?"Doğru":"Yanlış"}</span>` : `<span class="mark act">Seçim</span>`}</li>`).join("")}
+    </ol>
+    <div class="bpmchart"><small>Kalp atışı · en yüksek ${Math.max(...bpmLog)} bpm</small>${bpmSvg()}</div>
+    <p class="final">Seçimlerin kaydedildi. Beni iyi analiz ettiysen yarınki ilk kahveler benden. Başaramadıysan senden! ☕</p>
+    <div class="actions"><button class="btn" id="again">Tekrar oyna</button><button class="btn ghost" id="copy">Sonuçları kopyala</button></div>`;
+  showBubble();
+  $("again").onclick = () => { idx = 0; answers = []; bpmLog.length = 0; setBpm(72); bpmLog.push(72); QUESTIONS.forEach(q => q._carded = false); showQuestion(); };
+  $("copy").onclick = async e => {
+    const txt = `İlk Buluşma Simülatörü — ${right}/${scored}\n` + answers.map((a,n)=>`${n+1}. ${a.q} → ${a.a}${a.hasKey?(a.ok?" ✓":" ✗"):""}`).join("\n");
+    try { await navigator.clipboard.writeText(txt); e.target.textContent = "Kopyalandı"; } catch { e.target.textContent = "Kopyalanamadı"; }
+  };
+}
+
+document.addEventListener("keydown", e => {
+  if (locked || bubble.classList.contains("hide")) return;
+  const m = {A:0,B:1,C:2,"1":0,"2":1,"3":2}[e.key.toUpperCase()];
+  const btn = bubble.querySelector(`.opt[data-i="${m}"]`);
+  if (btn) btn.click();
+});
+
+showIntro();
+</script>
+</body>
+</html>
